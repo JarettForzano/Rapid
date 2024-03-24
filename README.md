@@ -19,7 +19,7 @@ Implementing Cloud allows these added benifits
 - Easier to read the code (Cloud made things very easy to write)
 
 ## Now
-Rapid is a faster and better way to share files between friends without having to worry about other people getting access to them. Each file is encrypted and uploaded to the cloud with a unique index. User information is stored using SQL aswell as information about the transaction that allows the files to be decrypted once downloaded back onto a users machine. User authentication exists which makes sure that nobody can gain access to your account. Mac addresses are used as a double authentication to make sure that a user would need to be on the same device that the account was created on to access their account.
+Rapid is a faster and better way to share files between friends without having to worry about other people getting access to them. Each file is encrypted and uploaded to the cloud with a unique index. User information is stored using SQL aswell as information about the transaction that allows the files to be decrypted once downloaded back onto a users machine. User authentication exists which makes sure that nobody can gain access to your account. UUID is used as a double authentication to make sure that a user would need to be on the same device that the account was created on to access their account.
 
 ## Features
 - File sharing between users
@@ -38,15 +38,15 @@ Rapid is a faster and better way to share files between friends without having t
 ## Usage
 Command Line Flags
 ```
-	-send user # Used to send file to user, must use -file path flag to specify the file
-	-file path # Used to specify the path to the file you are sending, must be used with -send
-	-add user_id # Used to add a friend, user_id is the id you retrieve when you use -info
-	-inbox # Used to retrive information about files you have yet to accept
-	-delete filename # Used to remove a file from your inbox
-	-boot friend_id # Used to remove a friend from your friends list
-	-recieve file # Used to accept a file being sent to you
-	-friends # Used to list all of your friends and their friend id
-	-info # Used to display your account information
+-send user # Used to send file to user, must use -file path flag to specify the file
+-file path # Used to specify the path to the file you are sending, must be used with -send
+-add user_id # Used to add a friend, user_id is the id you retrieve when you use -info
+-inbox # Used to retrive information about files you have yet to accept
+-delete filename # Used to remove a file from your inbox
+-boot friend_id # Used to remove a friend from your friends list
+-recieve file # Used to accept a file being sent to you
+-friends # Used to list all of your friends and their friend id
+-info # Used to display your account information
 ```
 Examples **After completing all the steps to get the binary working**
 ```
