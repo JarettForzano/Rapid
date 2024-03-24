@@ -11,10 +11,12 @@ CREATE TABLE IF NOT EXISTS transfer
 CREATE TABLE IF NOT EXISTS users 
 (
     id SERIAL PRIMARY KEY, 
-    name VARCHAR(100) NOT NULL,
+    nickname VARCHAR(100) NOT NULL,
+    username VARCHAR(100) NOT NULL,
     password VARCHAR(100) NOT NULL,
     friend_code VARCHAR(100), 
-    uuid VARCHAR(100)
+    uuid VARCHAR(100),
+    session INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS friends
