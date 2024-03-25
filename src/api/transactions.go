@@ -75,18 +75,18 @@ func DeleteTransaction(id int, filename string) error {
 /*
 Enters the information of a transaction to the database for later referal
 */
-func PerformTransaction(from_user_id int, user_to string, filename string) (bool, error) {
+func PerformTransaction(from_user_id int, user_to string, filename string, rsd int) error {
 	to_user_id, _ := GetUserID(user_to)
 
 	if AreMutualFriends(from_user_id, to_user_id) {
-		query := `INSERT INTO transfer (from_user, to_user, filename) VALUES ($1,$2,$3)`
-		_, err := conn.Exec(query, from_user_id, to_user_id, filename)
+		query := `INSERT INTO transfer (from_user, to_user, filename, rsa_id) VALUES ($1,$2,$3,$4)`
+		_, err := conn.Exec(query, from_user_id, to_user_id, filename, rsd)
 		if err != nil {
-			return false, err
+			return err
 		}
-		return true, nil
+		return nil
 	}
-	return false, nil
+	return custom.NewError("Users are already friends or user does not exist")
 }
 
 /*
@@ -94,7 +94,7 @@ Retrieves the key from the database that is used to encrypt the file
 */
 func RetrievePublicKey(id int) (string, error) {
 	var key string
-	query := `SELECT key FROM userkey WHERE users_id = $1`
+	query := `SELECT key FROM publickey WHERE users_id = $1`
 	err := conn.QueryRow(query, id).Scan(&key)
 
 	if err != nil {
@@ -132,14 +132,37 @@ func InsertRSA(nounce []byte, key []byte) (int, error) {
 /*
 Returns the RSA encrypted nounce and key
 */
-func RetrieveRSA(id int) (string, string, error) {
+func RetrieveRSA(user int, file string) (string, string, error) {
 	var nounce string
 	var key string
-	query := `SELECT nounce, key FROM rsa WHERE id=$1`
-	err := conn.QueryRow(query, id).Scan(&nounce, &key)
+	query := `
+	SELECT nounce, key 
+	FROM rsa 
+	INNER JOIN transfer ON transfer.rsa_id=rsa.id
+
+	WHERE to_user=$1 AND filename=$2`
+	err := conn.QueryRow(query, user, file).Scan(&nounce, &key)
 	if err != nil {
 		return "", "", err
 	}
 
 	return nounce, key, nil
+}
+
+/*
+Deletes the RSA encrypted nounce and key from the rsa table
+*/
+func DeleteRSA(user int, file string) error {
+	query := `
+	Delete
+	FROM rsa 
+	INNER JOIN transfer ON transfer.rsa_id=rsa.id
+
+	WHERE to_user=$1 AND filename=$2`
+	err := conn.QueryRow(query, user, file)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

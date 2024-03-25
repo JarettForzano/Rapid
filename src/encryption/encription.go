@@ -15,7 +15,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
 )
 
 // EncryptWithPublicKey encrypts data with public key
@@ -94,51 +93,35 @@ func CreatePrivateEncryptFile(privateKey *rsa.PrivateKey) error {
 /*
 Encrypts location given using public key as a string
 */
-func RSAEncryptItem(path string, publickey string) error {
-	temp := strings.Split(path, "/")
-	filename := temp[len(temp)-1] // Extracts the name of the file
+func RSAEncryptItem(key string, publickey string, nonce []byte) ([]byte, []byte) {
 
-	v, err := os.ReadFile(path)
-	if err != nil {
-		return err
-	}
 	public_key_bytes := []byte(publickey) // Reverts key to byte to encrypt with
 	publicKey := BytesToPublicKey(public_key_bytes)
-	fmt.Println(string(PublicKeyToBytes(publicKey)))
-	encryptedText := EncryptWithPublicKey(v, publicKey)
-	err = os.WriteFile(filename, encryptedText, 0644)
-	if err != nil {
-		return err
-	}
-	return nil
+
+	encryptedaes := EncryptWithPublicKey([]byte(key), publicKey)
+	encryptedNonce := EncryptWithPublicKey(nonce, publicKey)
+
+	return encryptedaes, encryptedNonce
 }
 
 /*
 Decrypts file at location given using private key path
 */
-func RSADecryptItem(path string, privatekeypath string) error {
-	temp := strings.Split(path, "/")
-	filename := temp[len(temp)-1] // Extracts the name of the file
+func RSADecryptItem(keypath string, aes string, nonce string) ([]byte, []byte) {
 
-	v, err := os.ReadFile(path)
-	if err != nil {
-		return err
-	}
-	privatekey, err := os.ReadFile(privatekeypath)
-	privateKey := BytesToPrivateKey(privatekey)
+	private_key_bytes := []byte(keypath) // Reverts key to byte to encrypt with
+	privateKey := BytesToPrivateKey(private_key_bytes)
 
-	decryptedText := DecryptWithPrivateKey(v, privateKey)
-	err = os.WriteFile(filename, decryptedText, 0644)
-	if err != nil {
-		return err
-	}
-	return nil
+	decryptedAes := DecryptWithPrivateKey([]byte(aes), privateKey)
+	decryptedNounce := DecryptWithPrivateKey([]byte(nonce), privateKey)
+
+	return decryptedAes, decryptedNounce
 }
 
 /*
 Ecnrypts file at location given using private key path
 */
-func AESEncryptionItem(location string, rename string, keyString string) error {
+func AESEncryptionItem(location string, rename string, keyString string) ([]byte, error) {
 
 	key, _ := hex.DecodeString(keyString)
 
@@ -146,20 +129,20 @@ func AESEncryptionItem(location string, rename string, keyString string) error {
 
 	block, err := aes.NewCipher(key)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	nonce := make([]byte, 12)
 	if _, err := io.ReadFull(rand.Reader, nonce); err != nil {
-		return err
+		return nil, err
 	}
 	aesgcm, err := cipher.NewGCM(block)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	ciphertext := aesgcm.Seal(nil, nonce, v, nil)
 	os.WriteFile(rename, ciphertext, 0644)
-	return nil
+	return nonce, nil
 }
 
 /*

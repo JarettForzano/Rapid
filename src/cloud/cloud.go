@@ -2,8 +2,6 @@ package cloud
 
 import (
 	"bytes"
-	"crypto/rand"
-	"encoding/hex"
 	"fmt"
 	"os"
 	"os/exec"
@@ -13,16 +11,6 @@ import (
 	database "github.com/Zaikoa/rapid/src/api"
 	custom "github.com/Zaikoa/rapid/src/handling"
 )
-
-// Generates a random 32 character string for encryption purposes
-func GenerateKey() (string, error) {
-	randomBytes := make([]byte, 16)
-	_, err := rand.Read(randomBytes)
-	if err != nil {
-		return "", err
-	}
-	return hex.EncodeToString(randomBytes), nil
-}
 
 /*
 Uploads a zip to the cloud
