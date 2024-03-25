@@ -146,15 +146,11 @@ func appStartup() {
 				Usage:   "send, s [User] [Filepath] {Will send user file/folder}",
 				Aliases: []string{"s"},
 				Action: func(c *cli.Context) error {
-					err, result := cloud.UploadToMega(c.Args().Get(1), user, c.Args().First())
+					err := cloud.UploadToMega(c.Args().Get(1), user, c.Args().First())
 					if err != nil {
-						fmt.Println(err)
+						return err
 					}
-					if result {
-						fmt.Println("File has been sent and will be waiting to be accepted")
-					} else {
-						fmt.Println("The requested user either does not exist or is not added")
-					}
+					fmt.Println("File has been sent and will be waiting to be accepted")
 					return nil
 				},
 			},
@@ -168,12 +164,11 @@ func appStartup() {
 						Usage:   "inbox recieve, r [Filename] {Recieves file from inbox}",
 						Action: func(c *cli.Context) error {
 							fmt.Println("Key is:", c.String("key"))
-							_, result := cloud.DownloadFromMega(user, c.Args().First(), "")
-							if result {
-								fmt.Println("File has been received")
-							} else {
-								fmt.Println("Filename or item does not not exist within your inbox")
+							err := cloud.DownloadFromMega(user, c.Args().First(), "", c.String("key"))
+							if err != nil {
+								return err
 							}
+							fmt.Println("File has been received")
 							return nil
 						},
 					},

@@ -63,9 +63,9 @@ func UserCanViewTransaction(id int, filename string) bool {
 /*
 Deletes a transaction record based on the given id
 */
-func DeleteTransaction(key string) error {
-	query := `DELETE FROM transfer WHERE key = $1`
-	_, err := conn.Exec(query, key)
+func DeleteTransaction(id int, filename string) error {
+	query := `DELETE FROM transfer WHERE to_user=$1 AND filename=$2`
+	_, err := conn.Exec(query, id, filename)
 	if err != nil {
 		return err
 	}
@@ -75,12 +75,12 @@ func DeleteTransaction(key string) error {
 /*
 Enters the information of a transaction to the database for later referal
 */
-func PerformTransaction(from_user_id int, user_to string, filename string, key string) (bool, error) {
+func PerformTransaction(from_user_id int, user_to string, filename string) (bool, error) {
 	to_user_id, _ := GetUserID(user_to)
 
 	if AreMutualFriends(from_user_id, to_user_id) {
-		query := `INSERT INTO transfer (from_user, to_user, key, filename) VALUES ($1,$2,$3,$4)`
-		_, err := conn.Exec(query, from_user_id, to_user_id, key, filename)
+		query := `INSERT INTO transfer (from_user, to_user, filename) VALUES ($1,$2,$3)`
+		_, err := conn.Exec(query, from_user_id, to_user_id, filename)
 		if err != nil {
 			return false, err
 		}
@@ -90,16 +90,28 @@ func PerformTransaction(from_user_id int, user_to string, filename string, key s
 }
 
 /*
-Retrieves decription key from the database that is used to decrypt the file
+Retrieves the key from the database that is used to encrypt the file
 */
-func RetrieveKey(filename string, to_user int) (string, error) {
+func RetrieveKey(id int) (string, error) {
 	var key string
-	query := `SELECT key FROM transfer WHERE to_user = $1 AND filename = $2`
-	err := conn.QueryRow(query, to_user, filename).Scan(&key)
+	query := `SELECT key FROM userkey WHERE users_id = $1`
+	err := conn.QueryRow(query, id).Scan(&key)
 
 	if err != nil {
 		return "", err
 	}
 
 	return key, nil
+}
+
+/*
+Inserts the public key into the userkey table
+*/
+func InsertKey(id int, key string) error {
+	query := `INSERT INTO userkey (users_id, key) VALUES ($1, $2)`
+	_, err := conn.Exec(query, id, key)
+	if err != nil {
+		return err
+	}
+	return nil
 }

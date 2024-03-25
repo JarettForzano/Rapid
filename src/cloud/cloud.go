@@ -13,7 +13,7 @@ import (
 
 	database "github.com/Zaikoa/rapid/src/api"
 	custom "github.com/Zaikoa/rapid/src/handling"
-	encription "github.com/Zaikoa/rapid/src/transfer"
+	encription "github.com/Zaikoa/rapid/src/rsa"
 )
 
 // Generates a random 32 character string for encryption purposes
@@ -29,36 +29,47 @@ func GenerateKey() (string, error) {
 /*
 Uploads a zip to the cloud
 */
-func UploadToMega(path string, from_user_id int, user_to string) (error, bool) {
+func UploadToMega(path string, from_user_id int, user_to string) error {
 
 	if from_user_id == 0 {
-		return custom.NewError("User must be logged in to use this method"), false
+		return custom.NewError("User must be logged in to use this method")
 	}
-
-	// Formats the zipped file
+	// Formats the file
 	split := strings.Split(path, "/")
 	name_of_item := split[len(split)-1]
 
-	// Ecncryption key (randomly generated)
-	key, _ := GenerateKey()
-
 	// Makes sure user is allowed to send the file before procceding
-	result, err := database.PerformTransaction(from_user_id, user_to, name_of_item, key)
+	result, err := database.PerformTransaction(from_user_id, user_to, name_of_item)
 	if err != nil {
-		return err, false
+		return err
 	}
 	if !result {
-		return nil, false
+		return nil
 	}
 
-	hashed_key := database.HashInfo(key)
-	// makes name include the zip
-	name := fmt.Sprintf("%s_%s.zip", hashed_key, database.HashInfo(name_of_item))
+	// makes name include the file
+	name := database.HashInfo(name_of_item + user_to)
+	err = encription.Compress(path, name)
+	if err != nil {
+		return err
+	}
 
-	// Encrypts the file
-	encription.ZipEncryptFolder(path, name, key)
+	current_dir, err := os.Getwd()
+	if err != nil {
+		return err
+	}
 
-	working_dir, _ := os.Getwd()
+	name = fmt.Sprintf("%s.tar.xz", name)
+	send_me := filepath.Join(current_dir, name)
+	id, err := database.GetUserID(user_to)
+	if err != nil {
+		return err
+	}
+	key, err := database.RetrieveKey(id)
+	if err != nil {
+		return err
+	}
+	err = encription.EncryptItem(send_me, key)
 
 	// Handles megacmd config
 	home, _ := os.UserHomeDir()
@@ -66,8 +77,10 @@ func UploadToMega(path string, from_user_id int, user_to string) (error, bool) {
 	config := fmt.Sprintf(`-conf=%s`, directory)
 
 	// Sends that file to MEGA
-	cmd := exec.Command("megacmd", config, "put", name, "mega:/")
-	cmd.Dir = working_dir
+	cmd := exec.Command("megacmd", config, "put", send_me, "mega:/")
+
+	cmd.Dir = current_dir
+
 	// Error handing
 	var out bytes.Buffer
 	var stderr bytes.Buffer
@@ -77,44 +90,38 @@ func UploadToMega(path string, from_user_id int, user_to string) (error, bool) {
 	// Runs cmd command
 	err = cmd.Run()
 	if err != nil {
-		return err, false
+		return err
 	}
 
-	// Remove file from temp
-	temp_zip := filepath.Join(working_dir, name)
-
 	// Deletes zip folder
-	err = os.RemoveAll(temp_zip)
+	err = os.RemoveAll(send_me)
 	if err != nil {
 		log.Println(err)
 	}
 
-	return nil, true
+	return nil
 }
 
-func DownloadFromMega(user int, file_name string, location string) (error, bool) {
+func DownloadFromMega(user int, file_name string, location string, privatekeypath string) error {
 
 	if user == 0 {
-		return custom.NewError("User must be logged in to use this method"), false
+		return custom.NewError("User must be logged in to use this method")
 	}
 
 	if !database.UserCanViewTransaction(user, file_name) {
-		return nil, false
+		return nil
 	}
-	// Ecncryption key
-	key, err := database.RetrieveKey(file_name, user)
-	if err != nil {
-		return err, false
-	}
+
 	// Gets the current directory the user is in
 	current_dir, _ := os.Getwd()
-	encryped_name := fmt.Sprintf("%s_%s.zip", database.HashInfo(key), database.HashInfo(file_name))
-
+	name := database.HashInfo(file_name + database.GetUserNameByID(user))
+	encryped_name := fmt.Sprintf("%s.tar.xz", name)
+	filename := fmt.Sprintf("%s.tar.xz", file_name)
 	// Destination the file will be downloaded to
-	destination := filepath.Join(current_dir, location, encryped_name)
+	destination := filepath.Join(current_dir, location, filename)
 
 	// Formats it for the mega cloud (readjusts the name to fit the hashing)
-	cloud_dir := fmt.Sprintf("mega:/%s_%s.zip", database.HashInfo(key), database.HashInfo(file_name))
+	cloud_dir := fmt.Sprintf("mega:/%s", encryped_name)
 
 	// Handles megacmd config
 	home, _ := os.UserHomeDir()
@@ -132,29 +139,32 @@ func DownloadFromMega(user int, file_name string, location string) (error, bool)
 	cmd.Stderr = &stderr
 
 	// Runs cmd command
-	err = cmd.Run()
+	err := cmd.Run()
 	if err != nil {
 		fmt.Println(fmt.Sprint(err) + ": " + stderr.String())
 	}
 
 	// Decripts folder
-	err = encription.DecryptZipFolder(destination, file_name, key)
+	err = encription.DecryptItem(destination, privatekeypath)
 	if err != nil {
-		fmt.Println(err)
+		return err
 	}
-
+	err = encription.Decompress(destination)
+	if err != nil {
+		return err
+	}
 	// Deletes zip folder
 	err = os.RemoveAll(destination)
 	if err != nil {
-		log.Println(err)
+		return err
 	}
 
 	// Removes the copy from the cloud so that no users can access it
 	_, err = DeleteFromMega(user, file_name)
 	if err != nil {
-		return err, false
+		return err
 	}
-	return nil, true
+	return nil
 }
 
 // Removes the file from the cloud
@@ -164,15 +174,10 @@ func DeleteFromMega(user int, file_name string) (bool, error) {
 		return false, custom.NewError("User must be logged in to use this method")
 	}
 
-	// Ecncryption key
-	key, err := database.RetrieveKey(file_name, user)
-	if err != nil {
-		return false, err
-	}
-	hashed_key := database.HashInfo(key)
+	name := database.HashInfo(file_name + database.GetUserNameByID(user))
 
 	// Formats it for the mega cloud
-	cloud_dir := fmt.Sprintf("mega:/%s_%s.zip", hashed_key, database.HashInfo(file_name))
+	cloud_dir := fmt.Sprintf("mega:/%s.tar.xz", name)
 
 	// Handles megacmd config
 	home, _ := os.UserHomeDir()
@@ -189,11 +194,11 @@ func DeleteFromMega(user int, file_name string) (bool, error) {
 	cmd.Stderr = &stderr
 
 	// Runs cmd command
-	err = cmd.Run()
+	err := cmd.Run()
 	if err != nil {
 		return false, err
 	}
-	err = database.DeleteTransaction(key)
+	err = database.DeleteTransaction(user, file_name)
 
 	if err != nil {
 		return false, nil

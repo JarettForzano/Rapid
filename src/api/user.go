@@ -14,6 +14,7 @@ import (
 	"time"
 
 	custom "github.com/Zaikoa/rapid/src/handling"
+	encription "github.com/Zaikoa/rapid/src/rsa"
 )
 
 // Stores the current users id
@@ -125,6 +126,21 @@ func CreateAccount(username string, password string) error {
 	// Inserts that data inside of the datbase
 	query := `INSERT INTO users (username, nickname, password, friend_code, uuid) VALUES ($1, $2, $3, $4, $5)`
 	_, err = conn.Exec(query, username, nickname, password, code, uuid)
+	if err != nil {
+		return err
+	}
+
+	privateKey, publicKey := encription.GenerateKeyPair(4098)
+	err = encription.CreatePrivateEncryptFile(privateKey)
+	if err != nil {
+		return err
+	}
+	fmt.Println("Congrats! Heres your decription key. Dont lose it.....")
+	id, err := GetUserID(username)
+	if err != nil {
+		return err
+	}
+	err = InsertKey(id, string(encription.PublicKeyToBytes(publicKey)))
 	if err != nil {
 		return err
 	}
