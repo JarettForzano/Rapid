@@ -13,8 +13,8 @@ import (
 	"strings"
 	"time"
 
+	encription "github.com/Zaikoa/rapid/src/encryption"
 	custom "github.com/Zaikoa/rapid/src/handling"
-	encription "github.com/Zaikoa/rapid/src/rsa"
 )
 
 // Stores the current users id
