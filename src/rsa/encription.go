@@ -36,11 +36,9 @@ func DecryptWithPrivateKey(ciphertext []byte, priv *rsa.PrivateKey) []byte {
 // Compresses directory or folder into .tar.xz
 func Compress(path string, name string) error {
 	current_dir, _ := os.Getwd()
-	file_location := filepath.Join(current_dir, path)
-
 	compressed_name := fmt.Sprintf("%s.tar.xz", name)
 
-	cmd := exec.Command("tar", "-cJf", compressed_name, file_location)
+	cmd := exec.Command("tar", "-cJf", compressed_name, path)
 	cmd.Dir = current_dir
 
 	// Error handing
@@ -101,7 +99,7 @@ func EncryptItem(path string, publickey string) error {
 	}
 	public_key_bytes := []byte(publickey) // Reverts key to byte to encrypt with
 	publicKey := BytesToPublicKey(public_key_bytes)
-
+	fmt.Println(string(PublicKeyToBytes(publicKey)))
 	encryptedText := EncryptWithPublicKey(v, publicKey)
 	err = os.WriteFile(filename, encryptedText, 0644)
 	if err != nil {
