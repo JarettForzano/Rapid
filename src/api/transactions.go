@@ -122,7 +122,7 @@ Inserts the encrypted nounce and key into rsa table
 func InsertRSA(nounce []byte, key []byte) (int, error) {
 	var id int
 	query := `INSERT INTO rsa (nounce, key) VALUES ($1, $2) RETURNING id`
-	err := conn.QueryRow(query, string(nounce), string(key)).Scan(&id)
+	err := conn.QueryRow(query, nounce, key).Scan(&id)
 	if err != nil {
 		return 0, err
 	}
@@ -132,9 +132,9 @@ func InsertRSA(nounce []byte, key []byte) (int, error) {
 /*
 Returns the RSA encrypted nounce and key
 */
-func RetrieveRSA(user int, file string) (string, string, error) {
-	var nounce string
-	var key string
+func RetrieveRSA(user int, file string) ([]byte, []byte, error) {
+	var nounce []byte
+	var key []byte
 	query := `
 	SELECT nounce, key 
 	FROM rsa 
@@ -143,7 +143,7 @@ func RetrieveRSA(user int, file string) (string, string, error) {
 	WHERE to_user=$1 AND filename=$2`
 	err := conn.QueryRow(query, user, file).Scan(&nounce, &key)
 	if err != nil {
-		return "", "", err
+		return nil, nil, err
 	}
 
 	return nounce, key, nil

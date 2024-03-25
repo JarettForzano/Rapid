@@ -9,7 +9,6 @@ import (
 	"crypto/rsa"
 	"crypto/sha512"
 	"encoding/hex"
-	"fmt"
 	"io"
 	"log"
 	"os"
@@ -40,9 +39,8 @@ func DecryptWithPrivateKey(ciphertext []byte, priv *rsa.PrivateKey) []byte {
 // Compresses directory or folder into .tar.xz
 func Compress(path string, name string) error {
 	current_dir, _ := os.Getwd()
-	compressed_name := fmt.Sprintf("%s.tar.xz", name)
 
-	cmd := exec.Command("tar", "-cJf", compressed_name, path)
+	cmd := exec.Command("tar", "-cJf", name, path)
 	cmd.Dir = current_dir
 
 	// Error handing
@@ -107,13 +105,13 @@ func RSAEncryptItem(key string, publickey string, nonce []byte) ([]byte, []byte)
 /*
 Decrypts file at location given using private key path
 */
-func RSADecryptItem(keypath string, aes string, nonce string) ([]byte, []byte) {
+func RSADecryptItem(keypath string, aes []byte, nonce []byte) ([]byte, []byte) {
 
 	private_key_bytes := []byte(keypath) // Reverts key to byte to encrypt with
 	privateKey := BytesToPrivateKey(private_key_bytes)
 
-	decryptedAes := DecryptWithPrivateKey([]byte(aes), privateKey)
-	decryptedNounce := DecryptWithPrivateKey([]byte(nonce), privateKey)
+	decryptedAes := DecryptWithPrivateKey(aes, privateKey)
+	decryptedNounce := DecryptWithPrivateKey(nonce, privateKey)
 
 	return decryptedAes, decryptedNounce
 }

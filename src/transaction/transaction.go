@@ -3,6 +3,8 @@ package transaction
 import (
 	"crypto/rand"
 	"encoding/hex"
+	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -30,19 +32,21 @@ func EncryptSend(filesource string, user int, to_user string) error {
 	if err != nil {
 		return err
 	}
-	temp := strings.Split(filesource, "/")
+	temp := strings.Split(filesource, "\\")
 	name := temp[len(temp)-1] // Extracts the name of the file
 
-	encodedname := database.HashInfo(name + database.GetUserNameByID(user))
-	encription.Compress(filesource, encodedname)
+	encodedname := database.HashInfo(name + to_user)
+	compressed_name := fmt.Sprintf("%s.tar.xz", encodedname)
+
+	encription.Compress(filesource, compressed_name)
 
 	current_dir, err := os.Getwd()
 	if err != nil {
 		return err
 	}
-	encrypted_location := filepath.Join(current_dir, encodedname)
+	encrypted_location := filepath.Join(current_dir, compressed_name)
 
-	nonce, err := encription.AESEncryptionItem(encrypted_location, encodedname, AESkey)
+	nonce, err := encription.AESEncryptionItem(encrypted_location, compressed_name, AESkey)
 	if err != nil {
 		return err
 	}
@@ -53,17 +57,25 @@ func EncryptSend(filesource string, user int, to_user string) error {
 	}
 
 	KeyE, NonceE := encription.RSAEncryptItem(AESkey, publickey, nonce)
-
 	id, err := database.InsertRSA(NonceE, KeyE)
+	if err != nil {
+		return err
+	}
 
 	err = database.PerformTransaction(user, to_user, name, id)
 	if err != nil {
 		return err
 	}
 
-	err = cloud.UploadToMega(encrypted_location, user, to_user, id)
+	err = cloud.UploadToMega(encrypted_location, user, to_user)
 	if err != nil {
 		return err
+	}
+
+	// Deletes zip folder
+	err = os.RemoveAll(encrypted_location)
+	if err != nil {
+		log.Println(err)
 	}
 	return nil
 }
@@ -72,16 +84,14 @@ func EncryptSend(filesource string, user int, to_user string) error {
 Recieves a file, decrypts it, and then uncompresses it
 */
 func RecieveDecrypt(user int, keypath string, file string, location string) error {
-	temp := strings.Split(location, "/")
-	name := temp[len(temp)-1] // Extracts the name of the file
 
-	encodedname := database.HashInfo(name + database.GetUserNameByID(user))
+	encodedname := database.HashInfo(file + database.GetUserNameByID(user))
 	current_dir, err := os.Getwd()
 	if err != nil {
 		return err
 	}
-
-	err = cloud.DownloadFromMega(user, file, encodedname, location)
+	compressed_name := fmt.Sprintf("%s.tar.xz", encodedname)
+	err = cloud.DownloadFromMega(user, file, compressed_name, location)
 	if err != nil {
 		return err
 	}
@@ -92,7 +102,8 @@ func RecieveDecrypt(user int, keypath string, file string, location string) erro
 	}
 	KeyD, NonceD := encription.RSADecryptItem(keypath, KeyE, NonceE)
 
-	decrypt_here := filepath.Join(current_dir, encodedname)
+	// Works up until here
+	decrypt_here := filepath.Join(current_dir, compressed_name)
 	err = encription.AESDecryptItem(decrypt_here, file, KeyD, NonceD)
 	if err != nil {
 		return err
@@ -102,11 +113,11 @@ func RecieveDecrypt(user int, keypath string, file string, location string) erro
 	if err != nil {
 		return err
 	}
-	err = database.DeleteRSA(user, file)
+	//err = database.DeleteRSA(user, file)
 	if err != nil {
 		return err
 	}
-	err = database.DeleteTransaction(user, file)
+	//err = database.DeleteTransaction(user, file)
 	if err != nil {
 		return err
 	}

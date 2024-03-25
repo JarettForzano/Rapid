@@ -15,20 +15,14 @@ import (
 /*
 Uploads a zip to the cloud
 */
-func UploadToMega(path string, from_user_id int, user_to string, aes int) error {
+func UploadToMega(path string, from_user_id int, user_to string) error {
 
 	if from_user_id == 0 {
 		return custom.NewError("User must be logged in to use this method")
 	}
 	// Formats the file
-	split := strings.Split(path, "/")
-	name_of_item := split[len(split)-1]
-
-	// Makes sure user is allowed to send the file before procceding
-	err := database.PerformTransaction(from_user_id, user_to, name_of_item, aes)
-	if err != nil {
-		return err
-	}
+	split := strings.Split(path, "\\")
+	encrypted_name := split[len(split)-1]
 
 	current_dir, err := os.Getwd()
 	if err != nil {
@@ -41,7 +35,7 @@ func UploadToMega(path string, from_user_id int, user_to string, aes int) error 
 	config := fmt.Sprintf(`-conf=%s`, directory)
 
 	// Sends that file to MEGA
-	cmd := exec.Command("megacmd", config, "put", path, "mega:/")
+	cmd := exec.Command("megacmd", config, "put", encrypted_name, "mega:/")
 
 	cmd.Dir = current_dir
 
@@ -99,7 +93,7 @@ func DownloadFromMega(user int, original string, file string, location string) e
 	}
 
 	// Removes the copy from the cloud so that no users can access it
-	_, err = DeleteFromMega(user, file)
+	//_, err = DeleteFromMega(user, file)
 	if err != nil {
 		return err
 	}

@@ -28,10 +28,9 @@ CREATE TABLE IF NOT EXISTS publickey
 CREATE TABLE IF NOT EXISTS rsa
 (
     id SERIAL PRIMARY KEY,
-    nounce VARCHAR(1000),
-    key VARCHAR(1000)
+    nounce BYTEA,
+    key BYTEA
 );
-
 CREATE TABLE IF NOT EXISTS friends
 (
     id SERIAL PRIMARY KEY,
