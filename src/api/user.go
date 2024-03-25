@@ -140,7 +140,7 @@ func CreateAccount(username string, password string) error {
 	if err != nil {
 		return err
 	}
-	err = InsertKey(id, string(encription.PublicKeyToBytes(publicKey)))
+	err = InsertPublicKey(id, string(encription.PublicKeyToBytes(publicKey)))
 	if err != nil {
 		return err
 	}

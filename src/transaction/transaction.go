@@ -25,35 +25,43 @@ func GenerateKey() (string, error) {
 /*
 Compresses a file and encrypts it and then sends it to the cloud
 */
-func EncryptSend(filesource string, id int, to_user string) error {
-	AESkey := GenerateKey()
-
-	temp := strings.Split(path, "/")
+func EncryptSend(filesource string, user int, to_user string) error {
+	AESkey, err := GenerateKey()
+	if err != nil {
+		return err
+	}
+	temp := strings.Split(filesource, "/")
 	name := temp[len(temp)-1] // Extracts the name of the file
 
-	encodedname := HashInfo(name + database.GetUserNameByID(id))
+	encodedname := database.HashInfo(name + database.GetUserNameByID(user))
 	encription.Compress(filesource, encodedname)
 
-	current_dir := os.Getwd()
+	current_dir, err := os.Getwd()
+	if err != nil {
+		return err
+	}
 	encrypted_location := filepath.Join(current_dir, encodedname)
 
-	nonce, err := encription.AESEncryptionItem(encrypted_location, encodedname)
+	nonce, err := encription.AESEncryptionItem(encrypted_location, encodedname, AESkey)
 	if err != nil {
 		return err
 	}
 
-	publickey := database.RetrievePublicKey(id)
+	publickey, err := database.RetrievePublicKey(user)
+	if err != nil {
+		return err
+	}
 
 	KeyE, NonceE := encription.RSAEncryptItem(AESkey, publickey, nonce)
 
-	id, err = database.InsertRSA(NonceE, KeyE)
+	id, err := database.InsertRSA(NonceE, KeyE)
 
-	err = database.PerformTransaction(id, to_user, name)
+	err = database.PerformTransaction(user, to_user, name, id)
 	if err != nil {
 		return err
 	}
 
-	err = cloud.UploadToMega(encrypted_location, id, database.GetUserNameByID(to_user))
+	err = cloud.UploadToMega(encrypted_location, user, to_user, id)
 	if err != nil {
 		return err
 	}
@@ -64,27 +72,33 @@ func EncryptSend(filesource string, id int, to_user string) error {
 Recieves a file, decrypts it, and then uncompresses it
 */
 func RecieveDecrypt(user int, keypath string, file string, location string) error {
-	err := cloud.DownloadFromMega(user, file, location)
+	temp := strings.Split(location, "/")
+	name := temp[len(temp)-1] // Extracts the name of the file
+
+	encodedname := database.HashInfo(name + database.GetUserNameByID(user))
+	current_dir, err := os.Getwd()
 	if err != nil {
 		return err
 	}
 
-	NonceE, KeyE := datbase.RetrieveRSA(user, file)
+	err = cloud.DownloadFromMega(user, file, encodedname, location)
+	if err != nil {
+		return err
+	}
+
+	NonceE, KeyE, err := database.RetrieveRSA(user, file)
+	if err != nil {
+		return err
+	}
 	KeyD, NonceD := encription.RSADecryptItem(keypath, KeyE, NonceE)
-
-	temp := strings.Split(path, "/")
-	name := temp[len(temp)-1] // Extracts the name of the file
-
-	encodedname := HashInfo(name + database.GetUserNameByID(id))
-	current_dir := os.Getwd()
 
 	decrypt_here := filepath.Join(current_dir, encodedname)
 	err = encription.AESDecryptItem(decrypt_here, file, KeyD, NonceD)
 	if err != nil {
 		return err
 	}
-	location := filepath.Join(current_dir, file)
-	err := encription.Decompress(location)
+	location = filepath.Join(current_dir, file)
+	err = encription.Decompress(location)
 	if err != nil {
 		return err
 	}

@@ -15,7 +15,7 @@ import (
 /*
 Uploads a zip to the cloud
 */
-func UploadToMega(path string, from_user_id int, user_to string) error {
+func UploadToMega(path string, from_user_id int, user_to string, aes int) error {
 
 	if from_user_id == 0 {
 		return custom.NewError("User must be logged in to use this method")
@@ -25,12 +25,9 @@ func UploadToMega(path string, from_user_id int, user_to string) error {
 	name_of_item := split[len(split)-1]
 
 	// Makes sure user is allowed to send the file before procceding
-	result, err := database.PerformTransaction(from_user_id, user_to, name_of_item)
+	err := database.PerformTransaction(from_user_id, user_to, name_of_item, aes)
 	if err != nil {
 		return err
-	}
-	if !result {
-		return nil
 	}
 
 	current_dir, err := os.Getwd()
@@ -63,23 +60,22 @@ func UploadToMega(path string, from_user_id int, user_to string) error {
 	return nil
 }
 
-func DownloadFromMega(user int, file string, location string) error {
+func DownloadFromMega(user int, original string, file string, location string) error {
 
 	if user == 0 {
 		return custom.NewError("User must be logged in to use this method")
 	}
 
-	if !database.UserCanViewTransaction(user, file) {
+	if !database.UserCanViewTransaction(user, original) {
 		return nil
 	}
 
 	// Gets the current directory the user is in
 	current_dir, _ := os.Getwd()
-	stored_name := fmt.Sprintf("%s.tar.xz", HashInfo(file+database.GetUserNameByID(user)))
-	destination := filepath.Join(current_dir, location, stored_name)
+	destination := filepath.Join(current_dir, location, file)
 
 	// Formats it for the mega cloud (readjusts the name to fit the hashing)
-	cloud_dir := fmt.Sprintf("mega:/%s", stored_name)
+	cloud_dir := fmt.Sprintf("mega:/%s", file)
 
 	// Handles megacmd config
 	home, _ := os.UserHomeDir()
@@ -103,7 +99,7 @@ func DownloadFromMega(user int, file string, location string) error {
 	}
 
 	// Removes the copy from the cloud so that no users can access it
-	_, err = DeleteFromMega(user, stored_name)
+	_, err = DeleteFromMega(user, file)
 	if err != nil {
 		return err
 	}

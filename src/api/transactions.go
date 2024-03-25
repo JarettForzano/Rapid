@@ -108,7 +108,7 @@ func RetrievePublicKey(id int) (string, error) {
 Inserts the public key into the userkey table
 */
 func InsertPublicKey(id int, key string) error {
-	query := `INSERT INTO userkey (users_id, key) VALUES ($1, $2)`
+	query := `INSERT INTO publickey (users_id, key) VALUES ($1, $2)`
 	_, err := conn.Exec(query, id, key)
 	if err != nil {
 		return err
@@ -159,7 +159,7 @@ func DeleteRSA(user int, file string) error {
 	INNER JOIN transfer ON transfer.rsa_id=rsa.id
 
 	WHERE to_user=$1 AND filename=$2`
-	err := conn.QueryRow(query, user, file)
+	_, err := conn.Exec(query, user, file)
 	if err != nil {
 		return err
 	}

@@ -148,16 +148,15 @@ func AESEncryptionItem(location string, rename string, keyString string) ([]byte
 /*
 Ecnrypts file at location given using private key path
 */
-func AESDecryptItem(location string, rename string, keyString string, nounce string) error {
+func AESDecryptItem(location string, rename string, keyString []byte, nonce []byte) error {
 
-	key, _ := hex.DecodeString(keyString)
+	key, _ := hex.DecodeString(string(keyString))
 	v, _ := os.ReadFile(location)
 
 	block, err := aes.NewCipher(key)
 	if err != nil {
 		return err
 	}
-	nonce := make([]byte, 12)
 	if _, err := io.ReadFull(rand.Reader, nonce); err != nil {
 		return err
 	}
@@ -170,4 +169,5 @@ func AESDecryptItem(location string, rename string, keyString string, nounce str
 	file, _ := aesgcm.Open(nil, nonce, ciphertext, nil)
 
 	os.WriteFile(rename, file, 0644)
+	return nil
 }
