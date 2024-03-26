@@ -93,7 +93,7 @@ func DownloadFromMega(user int, original string, file string, location string) e
 	}
 
 	// Removes the copy from the cloud so that no users can access it
-	//_, err = DeleteFromMega(user, file)
+	_, err = DeleteFromMega(user, file)
 	if err != nil {
 		return err
 	}

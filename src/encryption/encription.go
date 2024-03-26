@@ -9,11 +9,12 @@ import (
 	"crypto/rsa"
 	"crypto/sha512"
 	"encoding/hex"
+	"fmt"
 	"io"
 	"log"
 	"os"
 	"os/exec"
-	"path/filepath"
+	"strings"
 )
 
 // EncryptWithPublicKey encrypts data with public key
@@ -60,9 +61,11 @@ func Compress(path string, name string) error {
 // Decompresses directory or folder and returns it to original state
 func Decompress(path string) error {
 	current_dir, _ := os.Getwd()
-	file_location := filepath.Join(current_dir, path)
 
-	cmd := exec.Command("tar", "-xf", file_location)
+	temp := strings.Split(path, "\\")
+	name := temp[len(temp)-1] // Extracts the name of the file
+
+	cmd := exec.Command("tar", "-xf", name)
 	cmd.Dir = current_dir
 
 	// Error handing
@@ -74,6 +77,7 @@ func Decompress(path string) error {
 	// Runs cmd command
 	err := cmd.Run()
 	if err != nil {
+		fmt.Println(fmt.Sprint(err) + ": " + stderr.String())
 		return err
 	}
 	return nil
@@ -106,11 +110,11 @@ func RSAEncryptItem(key string, publickey string, nonce []byte) ([]byte, []byte)
 Decrypts file at location given using private key path
 */
 func RSADecryptItem(keypath string, aes []byte, nonce []byte) ([]byte, []byte) {
-
-	private_key_bytes := []byte(keypath) // Reverts key to byte to encrypt with
+	private_key_bytes, _ := os.ReadFile(keypath)
 	privateKey := BytesToPrivateKey(private_key_bytes)
 
 	decryptedAes := DecryptWithPrivateKey(aes, privateKey)
+
 	decryptedNounce := DecryptWithPrivateKey(nonce, privateKey)
 
 	return decryptedAes, decryptedNounce
@@ -120,7 +124,6 @@ func RSADecryptItem(keypath string, aes []byte, nonce []byte) ([]byte, []byte) {
 Ecnrypts file at location given using private key path
 */
 func AESEncryptionItem(location string, rename string, keyString string) ([]byte, error) {
-
 	key, _ := hex.DecodeString(keyString)
 
 	v, _ := os.ReadFile(location)
@@ -147,25 +150,21 @@ func AESEncryptionItem(location string, rename string, keyString string) ([]byte
 Ecnrypts file at location given using private key path
 */
 func AESDecryptItem(location string, rename string, keyString []byte, nonce []byte) error {
-
 	key, _ := hex.DecodeString(string(keyString))
+
 	v, _ := os.ReadFile(location)
 
 	block, err := aes.NewCipher(key)
 	if err != nil {
 		return err
 	}
-	if _, err := io.ReadFull(rand.Reader, nonce); err != nil {
-		return err
-	}
+
 	aesgcm, err := cipher.NewGCM(block)
 	if err != nil {
 		return err
 	}
-	ciphertext := aesgcm.Seal(nil, nonce, v, nil)
 
-	file, _ := aesgcm.Open(nil, nonce, ciphertext, nil)
-
+	file, _ := aesgcm.Open(nil, nonce, v, nil)
 	os.WriteFile(rename, file, 0644)
 	return nil
 }

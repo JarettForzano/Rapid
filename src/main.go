@@ -164,7 +164,6 @@ func appStartup() {
 						Aliases: []string{"r"},
 						Usage:   "inbox recieve, r [Filename] {Recieves file from inbox}",
 						Action: func(c *cli.Context) error {
-							fmt.Println("Key is:", c.String("key"))
 							err := transaction.RecieveDecrypt(user, c.String("key"), c.Args().First(), "")
 							if err != nil {
 								return err
@@ -285,9 +284,11 @@ func appStartup() {
 
 // Main method for runnning the system
 func main() {
+
 	err := database.InitializeDatabase()
 	if err != nil {
 		fmt.Println(err)
 	}
 	appStartup()
+
 }

@@ -12,6 +12,7 @@ import (
 	database "github.com/Zaikoa/rapid/src/api"
 	"github.com/Zaikoa/rapid/src/cloud"
 	encription "github.com/Zaikoa/rapid/src/encryption"
+	custom "github.com/Zaikoa/rapid/src/handling"
 )
 
 // Generates a random 32 character string for encryption purposes
@@ -50,8 +51,11 @@ func EncryptSend(filesource string, user int, to_user string) error {
 	if err != nil {
 		return err
 	}
-
-	publickey, err := database.RetrievePublicKey(user)
+	to_user_id, err := database.GetUserID(to_user)
+	if err != nil {
+		return err
+	}
+	publickey, err := database.RetrievePublicKey(to_user_id)
 	if err != nil {
 		return err
 	}
@@ -77,6 +81,7 @@ func EncryptSend(filesource string, user int, to_user string) error {
 	if err != nil {
 		log.Println(err)
 	}
+
 	return nil
 }
 
@@ -84,7 +89,9 @@ func EncryptSend(filesource string, user int, to_user string) error {
 Recieves a file, decrypts it, and then uncompresses it
 */
 func RecieveDecrypt(user int, keypath string, file string, location string) error {
-
+	if _, err := os.Stat(keypath); err != nil {
+		return custom.NewError("No Key exists at this location")
+	}
 	encodedname := database.HashInfo(file + database.GetUserNameByID(user))
 	current_dir, err := os.Getwd()
 	if err != nil {
@@ -97,22 +104,25 @@ func RecieveDecrypt(user int, keypath string, file string, location string) erro
 	}
 
 	NonceE, KeyE, err := database.RetrieveRSA(user, file)
+
 	if err != nil {
 		return err
 	}
 	KeyD, NonceD := encription.RSADecryptItem(keypath, KeyE, NonceE)
 
-	// Works up until here
 	decrypt_here := filepath.Join(current_dir, compressed_name)
-	err = encription.AESDecryptItem(decrypt_here, file, KeyD, NonceD)
+	// Works up until here
+	err = encription.AESDecryptItem(decrypt_here, compressed_name, KeyD, NonceD)
 	if err != nil {
 		return err
 	}
-	location = filepath.Join(current_dir, file)
-	err = encription.Decompress(location)
+
+	// Works until here
+	err = encription.Decompress(decrypt_here)
 	if err != nil {
 		return err
 	}
+
 	//err = database.DeleteRSA(user, file)
 	if err != nil {
 		return err
@@ -121,5 +131,12 @@ func RecieveDecrypt(user int, keypath string, file string, location string) erro
 	if err != nil {
 		return err
 	}
+
+	// Deletes zip folder
+	err = os.RemoveAll(decrypt_here)
+	if err != nil {
+		log.Println(err)
+	}
+
 	return nil
 }
