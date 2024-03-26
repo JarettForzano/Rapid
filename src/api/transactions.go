@@ -138,7 +138,7 @@ func RetrieveRSA(user int, file string) ([]byte, []byte, error) {
 	query := `
 	SELECT nounce, key 
 	FROM rsa 
-	INNER JOIN transfer ON transfer.rsa_id=rsa.id
+	INNER JOIN transfer ON transfer.rsa_id=rsa.rsa_id
 
 	WHERE to_user=$1 AND filename=$2`
 	err := conn.QueryRow(query, user, file).Scan(&nounce, &key)
@@ -147,22 +147,4 @@ func RetrieveRSA(user int, file string) ([]byte, []byte, error) {
 	}
 
 	return nounce, key, nil
-}
-
-/*
-Deletes the RSA encrypted nounce and key from the rsa table
-*/
-func DeleteRSA(user int, file string) error {
-	query := `
-	Delete
-	FROM rsa 
-	INNER JOIN transfer ON transfer.rsa_id=rsa.id
-
-	WHERE to_user=$1 AND filename=$2`
-	_, err := conn.Exec(query, user, file)
-	if err != nil {
-		return err
-	}
-
-	return nil
 }
