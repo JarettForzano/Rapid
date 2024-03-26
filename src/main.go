@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 
 	custom "github.com/Zaikoa/rapid/src/handling"
+	"github.com/Zaikoa/rapid/src/transaction"
 
 	database "github.com/Zaikoa/rapid/src/api"
 	"github.com/Zaikoa/rapid/src/cloud"
@@ -146,7 +147,7 @@ func appStartup() {
 				Usage:   "send, s [User] [Filepath] {Will send user file/folder}",
 				Aliases: []string{"s"},
 				Action: func(c *cli.Context) error {
-					err := cloud.UploadToMega(c.Args().Get(1), user, c.Args().First())
+					err := transaction.EncryptSend(c.Args().Get(1), user, c.Args().First())
 					if err != nil {
 						return err
 					}
@@ -163,8 +164,7 @@ func appStartup() {
 						Aliases: []string{"r"},
 						Usage:   "inbox recieve, r [Filename] {Recieves file from inbox}",
 						Action: func(c *cli.Context) error {
-							fmt.Println("Key is:", c.String("key"))
-							err := cloud.DownloadFromMega(user, c.Args().First(), "", c.String("key"))
+							err := transaction.RecieveDecrypt(user, c.String("key"), c.Args().First(), "")
 							if err != nil {
 								return err
 							}
@@ -284,9 +284,11 @@ func appStartup() {
 
 // Main method for runnning the system
 func main() {
+
 	err := database.InitializeDatabase()
 	if err != nil {
 		fmt.Println(err)
 	}
 	appStartup()
+
 }
