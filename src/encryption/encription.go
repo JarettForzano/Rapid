@@ -2,14 +2,18 @@ package encription
 
 import (
 	"bytes"
+	"crypto/aes"
+	"crypto/cipher"
+	"crypto/rand"
 	rand2 "crypto/rand"
 	"crypto/rsa"
 	"crypto/sha512"
+	"encoding/hex"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"strings"
 )
 
@@ -36,9 +40,8 @@ func DecryptWithPrivateKey(ciphertext []byte, priv *rsa.PrivateKey) []byte {
 // Compresses directory or folder into .tar.xz
 func Compress(path string, name string) error {
 	current_dir, _ := os.Getwd()
-	compressed_name := fmt.Sprintf("%s.tar.xz", name)
 
-	cmd := exec.Command("tar", "-cJf", compressed_name, path)
+	cmd := exec.Command("tar", "-cJf", name, path)
 	cmd.Dir = current_dir
 
 	// Error handing
@@ -58,9 +61,11 @@ func Compress(path string, name string) error {
 // Decompresses directory or folder and returns it to original state
 func Decompress(path string) error {
 	current_dir, _ := os.Getwd()
-	file_location := filepath.Join(current_dir, path)
 
-	cmd := exec.Command("tar", "-xf", file_location)
+	temp := strings.Split(path, "\\")
+	name := temp[len(temp)-1] // Extracts the name of the file
+
+	cmd := exec.Command("tar", "-xf", name)
 	cmd.Dir = current_dir
 
 	// Error handing
@@ -72,6 +77,7 @@ func Decompress(path string) error {
 	// Runs cmd command
 	err := cmd.Run()
 	if err != nil {
+		fmt.Println(fmt.Sprint(err) + ": " + stderr.String())
 		return err
 	}
 	return nil
@@ -89,43 +95,76 @@ func CreatePrivateEncryptFile(privateKey *rsa.PrivateKey) error {
 /*
 Encrypts location given using public key as a string
 */
-func EncryptItem(path string, publickey string) error {
-	temp := strings.Split(path, "/")
-	filename := temp[len(temp)-1] // Extracts the name of the file
+func RSAEncryptItem(key string, publickey string, nonce []byte) ([]byte, []byte) {
 
-	v, err := os.ReadFile(path)
-	if err != nil {
-		return err
-	}
 	public_key_bytes := []byte(publickey) // Reverts key to byte to encrypt with
 	publicKey := BytesToPublicKey(public_key_bytes)
-	fmt.Println(string(PublicKeyToBytes(publicKey)))
-	encryptedText := EncryptWithPublicKey(v, publicKey)
-	err = os.WriteFile(filename, encryptedText, 0644)
-	if err != nil {
-		return err
-	}
-	return nil
+
+	encryptedaes := EncryptWithPublicKey([]byte(key), publicKey)
+	encryptedNonce := EncryptWithPublicKey(nonce, publicKey)
+
+	return encryptedaes, encryptedNonce
 }
 
 /*
 Decrypts file at location given using private key path
 */
-func DecryptItem(path string, privatekeypath string) error {
-	temp := strings.Split(path, "/")
-	filename := temp[len(temp)-1] // Extracts the name of the file
+func RSADecryptItem(keypath string, aes []byte, nonce []byte) ([]byte, []byte) {
+	private_key_bytes, _ := os.ReadFile(keypath)
+	privateKey := BytesToPrivateKey(private_key_bytes)
 
-	v, err := os.ReadFile(path)
+	decryptedAes := DecryptWithPrivateKey(aes, privateKey)
+
+	decryptedNounce := DecryptWithPrivateKey(nonce, privateKey)
+
+	return decryptedAes, decryptedNounce
+}
+
+/*
+Ecnrypts file at location given using private key path
+*/
+func AESEncryptionItem(location string, rename string, keyString string) ([]byte, error) {
+	key, _ := hex.DecodeString(keyString)
+
+	v, _ := os.ReadFile(location)
+
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		return nil, err
+	}
+	nonce := make([]byte, 12)
+	if _, err := io.ReadFull(rand.Reader, nonce); err != nil {
+		return nil, err
+	}
+	aesgcm, err := cipher.NewGCM(block)
+	if err != nil {
+		return nil, err
+	}
+
+	ciphertext := aesgcm.Seal(nil, nonce, v, nil)
+	os.WriteFile(rename, ciphertext, 0644)
+	return nonce, nil
+}
+
+/*
+Ecnrypts file at location given using private key path
+*/
+func AESDecryptItem(location string, rename string, keyString []byte, nonce []byte) error {
+	key, _ := hex.DecodeString(string(keyString))
+
+	v, _ := os.ReadFile(location)
+
+	block, err := aes.NewCipher(key)
 	if err != nil {
 		return err
 	}
-	privatekey, err := os.ReadFile(privatekeypath)
-	privateKey := BytesToPrivateKey(privatekey)
 
-	decryptedText := DecryptWithPrivateKey(v, privateKey)
-	err = os.WriteFile(filename, decryptedText, 0644)
+	aesgcm, err := cipher.NewGCM(block)
 	if err != nil {
 		return err
 	}
+
+	file, _ := aesgcm.Open(nil, nonce, v, nil)
+	os.WriteFile(rename, file, 0644)
 	return nil
 }

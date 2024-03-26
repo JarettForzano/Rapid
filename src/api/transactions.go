@@ -75,26 +75,26 @@ func DeleteTransaction(id int, filename string) error {
 /*
 Enters the information of a transaction to the database for later referal
 */
-func PerformTransaction(from_user_id int, user_to string, filename string) (bool, error) {
+func PerformTransaction(from_user_id int, user_to string, filename string, rsd int) error {
 	to_user_id, _ := GetUserID(user_to)
 
 	if AreMutualFriends(from_user_id, to_user_id) {
-		query := `INSERT INTO transfer (from_user, to_user, filename) VALUES ($1,$2,$3)`
-		_, err := conn.Exec(query, from_user_id, to_user_id, filename)
+		query := `INSERT INTO transfer (from_user, to_user, filename, rsa_id) VALUES ($1,$2,$3,$4)`
+		_, err := conn.Exec(query, from_user_id, to_user_id, filename, rsd)
 		if err != nil {
-			return false, err
+			return err
 		}
-		return true, nil
+		return nil
 	}
-	return false, nil
+	return custom.NewError("Users are already friends or user does not exist")
 }
 
 /*
 Retrieves the key from the database that is used to encrypt the file
 */
-func RetrieveKey(id int) (string, error) {
+func RetrievePublicKey(id int) (string, error) {
 	var key string
-	query := `SELECT key FROM userkey WHERE users_id = $1`
+	query := `SELECT key FROM publickey WHERE users_id = $1`
 	err := conn.QueryRow(query, id).Scan(&key)
 
 	if err != nil {
@@ -107,11 +107,44 @@ func RetrieveKey(id int) (string, error) {
 /*
 Inserts the public key into the userkey table
 */
-func InsertKey(id int, key string) error {
-	query := `INSERT INTO userkey (users_id, key) VALUES ($1, $2)`
+func InsertPublicKey(id int, key string) error {
+	query := `INSERT INTO publickey (users_id, key) VALUES ($1, $2)`
 	_, err := conn.Exec(query, id, key)
 	if err != nil {
 		return err
 	}
 	return nil
+}
+
+/*
+Inserts the encrypted nounce and key into rsa table
+*/
+func InsertRSA(nounce []byte, key []byte) (int, error) {
+	var id int
+	query := `INSERT INTO rsa (nounce, key) VALUES ($1, $2) RETURNING id`
+	err := conn.QueryRow(query, nounce, key).Scan(&id)
+	if err != nil {
+		return 0, err
+	}
+	return id, nil
+}
+
+/*
+Returns the RSA encrypted nounce and key
+*/
+func RetrieveRSA(user int, file string) ([]byte, []byte, error) {
+	var nounce []byte
+	var key []byte
+	query := `
+	SELECT nounce, key 
+	FROM rsa 
+	INNER JOIN transfer ON transfer.rsa_id=rsa.rsa_id
+
+	WHERE to_user=$1 AND filename=$2`
+	err := conn.QueryRow(query, user, file).Scan(&nounce, &key)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return nounce, key, nil
 }
