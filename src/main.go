@@ -62,52 +62,21 @@ func appStartup() {
 			if err != nil {
 				return err
 			}
-			if c.Command.FullName() != "Login" && id == 0 {
+			if c.Args().Get(0) != "Login" && id == 0 {
 				return custom.NOTLOGGEDIN
 			}
 			return nil
 		},
+		After: func(c *cli.Context) error {
+			if c.BoolFlag("logout") {
+				if err := database.DeactivateSession(user); err != nil {
+					return err
+				}
+				fmt.Printf("User %s has been logged out\n", database.GetUserNameByID(user))
+			}
+			return nil
+		},
 		Commands: []*cli.Command{
-			{
-				Name:  "login",
-				Usage: "login [Username] [Password] {Login to a users account}",
-				Action: func(c *cli.Context) error {
-					if err := database.Login(c.Args().First(), c.Args().Get(1)); err != nil {
-						return err
-					}
-					fmt.Printf("Currently Logged in as %s\n", database.GetUserNameByID(user))
-
-					return nil
-				},
-			},
-			{
-				Name:  "logout",
-				Usage: "logout {logs current user out of their session}",
-				Action: func(c *cli.Context) error {
-					if err := database.DeactivateSession(user); err != nil {
-						return err
-					}
-					fmt.Printf("User %s has been logged out\n", database.GetUserNameByID(user))
-
-					return nil
-				},
-			},
-			{
-				Name:  "create",
-				Usage: "create [Username] [Password] {Create a users account}",
-				Action: func(c *cli.Context) error {
-					if err := database.CreateAccount(c.Args().First(), c.Args().Get(1)); err != nil {
-						return err
-					}
-
-					if err = database.Login(c.Args().First(), c.Args().Get(1)); err != nil {
-						return err
-					}
-					fmt.Printf("Currently Logged in as %s\n", database.GetUserNameByID(user))
-
-					return nil
-				},
-			},
 			{
 				Name:  "help",
 				Usage: "help {Displays all commands and information}",
@@ -117,29 +86,78 @@ func appStartup() {
 				},
 			},
 			{
-				Name:    "user",
-				Usage:   "user, u {Displays user information}",
-				Aliases: []string{"u"},
-				Action: func(c *cli.Context) error {
-					if result, err := database.GetUserFriendCode(user); err != nil {
-						return err
-					}
-					fmt.Printf("| Username   %s | Friend code   %s |\n", database.GetUserNameByID(user), result)
+				Name:  "user",
+				Usage: "user, u {Displays user information}",
+				Subcommands: []*cli.Command{
+					{
+						Name:    "info",
+						Aliases: []string{"i"},
+						Usage:   "info {Displays user information}",
+						Action: func(c *cli.Context) error {
+							if result, err := database.GetUserFriendCode(user); err != nil {
+								return err
+							}
+							fmt.Printf("| Username   %s | Friend code   %s |\n", database.GetUserNameByID(user), result)
 
-					return nil
-				},
-			},
-			{
-				Name:    "send",
-				Usage:   "send, s [User] [Filepath] {Will send user file/folder}",
-				Aliases: []string{"s"},
-				Action: func(c *cli.Context) error {
-					if err := transaction.EncryptSend(c.Args().Get(1), user, c.Args().First()); err != nil {
-						return err
-					}
-					fmt.Println("File has been sent and will be waiting to be accepted")
+							return nil
+						},
+					},
+					{
+						Name:    "login",
+						Aliases: []string{"li"},
+						Usage:   "login [Username] [Password] {Login to a users account}",
+						Action: func(c *cli.Context) error {
+							if err := database.Login(c.Args().First(), c.Args().Get(1)); err != nil {
+								return err
+							}
+							fmt.Printf("Currently Logged in as %s\n", database.GetUserNameByID(user))
 
-					return nil
+							return nil
+						},
+					},
+					{
+						Name:    "create",
+						Aliases: []string{"c"},
+						Usage:   "create [Username] [Password] {Create a users account}",
+						Action: func(c *cli.Context) error {
+							if err := database.CreateAccount(c.Args().First(), c.Args().Get(1)); err != nil {
+								return err
+							}
+
+							if err = database.Login(c.Args().First(), c.Args().Get(1)); err != nil {
+								return err
+							}
+							fmt.Printf("Currently Logged in as %s\n", database.GetUserNameByID(user))
+
+							return nil
+						},
+					},
+					{
+						Name:    "logout",
+						Aliases: []string{"lo"},
+						Usage:   "logout {logs current user out of their session}",
+						Action: func(c *cli.Context) error {
+							if err := database.DeactivateSession(user); err != nil {
+								return err
+							}
+							fmt.Printf("User %s has been logged out\n", database.GetUserNameByID(user))
+
+							return nil
+						},
+					},
+					{
+						Name:    "send",
+						Usage:   "send, s [User] [Filepath] {Will send user file/folder}",
+						Aliases: []string{"s"},
+						Action: func(c *cli.Context) error {
+							if err := transaction.EncryptSend(c.Args().Get(1), user, c.Args().First()); err != nil {
+								return err
+							}
+							fmt.Println("File has been sent and will be waiting to be accepted")
+
+							return nil
+						},
+					},
 				},
 			},
 			{
@@ -236,12 +254,17 @@ func appStartup() {
 
 		Flags: []cli.Flag{
 			&cli.StringFlag{
-
 				Name:        "key",
 				Usage:       "-key, -k [Path To Key] {Specifies path to encryption key}",
 				Value:       filepath.Join(userDir, "Rapid", "supersecretekey.txt"),
 				Destination: &userDir,
 				Aliases:     []string{"k"},
+			},
+			&cli.BoolFlag{
+				Name:    "logout",
+				Usage:   "-logout {logs user out of session after command is ran, useful if you are only running one command and do not need to be logged in for a while}",
+				Value:   false,
+				Aliases: []string{"lo"},
 			},
 		},
 		EnableBashCompletion: true,
