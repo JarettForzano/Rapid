@@ -6,7 +6,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
 
 	database "github.com/Zaikoa/rapid/src/api"
 	custom "github.com/Zaikoa/rapid/src/handling"
@@ -17,8 +16,7 @@ Uploads a zip to the cloud
 */
 func UploadToMega(path string, from_user_id int, user_to string) error {
 	// Formats the file
-	split := strings.Split(path, "\\")
-	encrypted_name := split[len(split)-1]
+	encrypted_name := filepath.Base(path)
 
 	current_dir, err := os.Getwd()
 	if err != nil {

@@ -13,7 +13,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
-	"strings"
+	"path/filepath"
 
 	custom "github.com/Zaikoa/rapid/src/handling"
 )
@@ -63,8 +63,7 @@ func Compress(path string, name string) error {
 func Decompress(path string) error {
 	current_dir, _ := os.Getwd()
 
-	temp := strings.Split(path, "\\")
-	name := temp[len(temp)-1] // Extracts the name of the file
+	name := filepath.Base(path) // Extracts the name of the file
 
 	cmd := exec.Command("tar", "-xf", name)
 	cmd.Dir = current_dir

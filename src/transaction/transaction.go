@@ -7,7 +7,6 @@ import (
 	"log"
 	"os"
 	"path/filepath"
-	"strings"
 
 	database "github.com/Zaikoa/rapid/src/api"
 	"github.com/Zaikoa/rapid/src/cloud"
@@ -33,8 +32,7 @@ func EncryptSend(filesource string, user int, to_user string) error {
 	if err != nil {
 		return err
 	}
-	temp := strings.Split(filesource, "\\")
-	name := temp[len(temp)-1] // Extracts the name of the file
+	name := filepath.Base(filesource) // Extracts the name of the file
 
 	encodedname := database.HashInfo(name + to_user)
 	compressed_name := fmt.Sprintf("%s.tar.xz", encodedname)
