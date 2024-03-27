@@ -10,9 +10,7 @@ Handles adding a friend to the users friend list
 func AddFriend(friendCode string, id int) error {
 	var to_friend_id int
 	query := `SELECT id FROM users WHERE friend_code=$1`
-	err := conn.QueryRow(query, friendCode).Scan(&to_friend_id)
-
-	if to_friend_id == 0 { // id has to be 0 if it does not exist since sql does not support null primary ids
+	if err := conn.QueryRow(query, friendCode).Scan(&to_friend_id); to_friend_id == 0 { // id has to be 0 if it does not exist since sql does not support null primary ids
 		return custom.USERNOTEXIST
 	}
 
@@ -21,10 +19,10 @@ func AddFriend(friendCode string, id int) error {
 	}
 
 	query = `INSERT INTO friends (user_one, user_two) VALUES ($1, $2)`
-	_, err = conn.Exec(query, id, to_friend_id)
-	if err != nil {
+	if _, err = conn.Exec(query, id, to_friend_id); err != nil {
 		return err
 	}
+
 	return nil
 
 }
@@ -34,14 +32,13 @@ Removes a friend from users friend list
 */
 func DeleteFriend(id int, username string) error {
 	query := `DELETE FROM friends WHERE (user_one=$1 AND user_two=$2) OR (user_one=$2 AND user_two=$1)`
-	result, err := GetUserID(username)
-	if err != nil {
+	if result, err := GetUserID(username); err != nil {
 		return err
 	}
-	_, err = conn.Exec(query, id, result)
-	if err != nil {
+	if _, err = conn.Exec(query, id, result); err != nil {
 		return err
 	}
+
 	return nil
 }
 
@@ -54,11 +51,10 @@ func IsFriend(user_one_id int, user_two_id int) bool {
 	SELECT id 
 	FROM friends
 	WHERE friends.user_one=$1 AND friends.user_two=$2`
-	err := conn.QueryRow(query, user_one_id, user_two_id).Scan(&temp)
-
-	if err != nil || temp == 0 { // primary id cannot be null so we must check if its 0 instead
+	if err := conn.QueryRow(query, user_one_id, user_two_id).Scan(&temp); err != nil || temp == 0 { // primary id cannot be null so we must check if its 0 instead
 		return false
 	}
+
 	return true
 }
 
@@ -91,8 +87,7 @@ func GetFriendsList(id int) ([]Friend, error) {
 	) AS combined_data
 	GROUP BY nickname, friend_code`
 
-	rows, err := conn.Query(query, id)
-	if err != nil {
+	if rows, err := conn.Query(query, id); err != nil {
 		return nil, err
 	}
 	defer rows.Close()
