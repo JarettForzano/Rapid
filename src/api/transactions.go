@@ -2,7 +2,6 @@ package database
 
 import (
 	custom "github.com/Zaikoa/rapid/src/handling"
-	"github.com/gogo/protobuf/test/custom"
 )
 
 type Transaction struct {
@@ -19,7 +18,8 @@ func GetPendingTransfers(id int) ([]Transaction, error) {
 	FROM transfer 
 	INNER JOIN users ON transfer.from_user = users.id
 	WHERE to_user=$1`
-	if rows, err := conn.Query(query, id); err != nil {
+	rows, err := conn.Query(query, id)
+	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
@@ -69,19 +69,20 @@ func DeleteTransaction(id int, filename string) error {
 /*
 Enters the information of a transaction to the database for later referal
 */
-func PerformTransaction(from_user_id int, user_to string, filename string, rsd int) error {
-	if to_user_id, err := GetUserID(user_to); err != nil {
-		return err
+func PerformTransaction(from_user_id int, user_to string, filename string) (int, error) {
+	var id int
+	to_user_id, err := GetUserID(user_to)
+	if err != nil {
+		return id, err
 	}
-
 	if AreMutualFriends(from_user_id, to_user_id) {
-		query := `INSERT INTO transfer (from_user, to_user, filename, rsa_id) VALUES ($1,$2,$3,$4)`
-		if _, err := conn.Exec(query, from_user_id, to_user_id, filename, rsd); err != nil {
-			return err
+		query := `INSERT INTO transfer (from_user, to_user, filename) VALUES ($1,$2,$3) RETURNING id`
+		if err := conn.QueryRow(query, from_user_id, to_user_id, filename).Scan(&id); err != nil {
+			return id, err
 		}
-		return nil
+		return id, nil
 	}
-	return custom.ALREADYFRIENDS
+	return id, custom.ALREADYFRIENDS
 }
 
 /*
@@ -112,14 +113,13 @@ func InsertPublicKey(id int, key string) error {
 /*
 Inserts the encrypted nounce and key into rsa table
 */
-func InsertRSA(nounce []byte, key []byte) (int, error) {
-	var id int
-	query := `INSERT INTO rsa (nounce, key) VALUES ($1, $2) RETURNING id`
-	if err := conn.QueryRow(query, nounce, key).Scan(&id); err != nil {
-		return id, err
+func InsertRSA(nounce []byte, key []byte, id int) error {
+	query := `INSERT INTO rsa (id, nounce, key) VALUES ($1, $2, $3)`
+	if _, err := conn.Exec(query, id, nounce, key); err != nil {
+		return err
 	}
 
-	return id, nil
+	return nil
 }
 
 /*
@@ -130,7 +130,7 @@ func RetrieveRSA(user int, file string) ([]byte, []byte, error) {
 	query := `
 	SELECT nounce, key 
 	FROM rsa 
-	INNER JOIN transfer ON transfer.rsa_id=rsa.rsa_id
+	INNER JOIN transfer ON transfer.id=rsa.id
 
 	WHERE to_user=$1 AND filename=$2`
 	if err := conn.QueryRow(query, user, file).Scan(&nounce, &key); err != nil {

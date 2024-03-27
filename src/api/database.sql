@@ -3,12 +3,8 @@ CREATE TABLE IF NOT EXISTS transfer
     id SERIAL PRIMARY KEY, 
     from_user INTEGER NOT NULL, 
     to_user INTEGER NOT NULL, 
-    filename TEXT NOT NULL,
-    rsa_id INTEGER,
-    FOREIGN KEY (rsa_id) REFERENCES rsa
-    ON DELETE CASCADE
+    filename TEXT NOT NULL
 );
-
 
 CREATE TABLE IF NOT EXISTS users 
 (
@@ -29,10 +25,13 @@ CREATE TABLE IF NOT EXISTS publickey
 
 CREATE TABLE IF NOT EXISTS rsa
 (
-    rsa_id SERIAL PRIMARY KEY,
+    id INTEGER,
     nounce BYTEA,
-    key BYTEA
+    key BYTEA,
+    FOREIGN KEY (id) REFERENCES transfer
+    ON DELETE CASCADE
 );
+
 CREATE TABLE IF NOT EXISTS friends
 (
     id SERIAL PRIMARY KEY,

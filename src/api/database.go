@@ -45,7 +45,8 @@ func GetConn() (*pgx.Conn, error) {
 		Password: sql.Password,
 	}
 
-	if newConn, err := pgx.Connect(connConfig); err != nil {
+	newConn, err := pgx.Connect(connConfig)
+	if err != nil {
 		return nil, fmt.Errorf("Failed to connect: %v", err)
 	}
 
@@ -54,7 +55,8 @@ func GetConn() (*pgx.Conn, error) {
 }
 
 func parseSqlFile(sql *Sql, path string) error {
-	if data, err := os.ReadFile(path); err != nil {
+	data, err := os.ReadFile(path)
+	if err != nil {
 		return err
 	}
 	if err = json.Unmarshal(data, &sql); err != nil {
@@ -67,7 +69,8 @@ func parseSqlFile(sql *Sql, path string) error {
 func InitializeDatabase() error {
 	var content embed.FS
 	path, _ := content.ReadFile("database.sql")
-	if conn, err := GetConn(); err != nil {
+	conn, err := GetConn()
+	if err != nil {
 		return fmt.Errorf("Error connecting to the database: %v", err)
 	}
 

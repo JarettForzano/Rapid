@@ -14,6 +14,7 @@ import (
 
 	encription "github.com/Zaikoa/rapid/src/encryption"
 	custom "github.com/Zaikoa/rapid/src/handling"
+	"github.com/jackc/pgx"
 )
 
 // Stores the current users id
@@ -23,10 +24,10 @@ var current_user int
 Returns users UUID by first checking what system they are on
 */
 func getUUID() (string, error) {
-	var b []byte
 	if runtime.GOOS == "windows" {
 		cmd := exec.Command("wmic", "path", "win32_computersystemproduct", "get", "UUID")
-		if b, err := cmd.CombinedOutput(); err != nil {
+		b, err := cmd.CombinedOutput()
+		if err != nil {
 			return "", err
 		}
 		out := string(b)
@@ -35,7 +36,8 @@ func getUUID() (string, error) {
 		return result[1], nil
 	} else if runtime.GOOS == "darwin" {
 		cmd := exec.Command("uuidgen")
-		if b, err := cmd.CombinedOutput(); err != nil {
+		b, err := cmd.CombinedOutput()
+		if err != nil {
 			return "", err
 		}
 		out := string(b)
@@ -43,7 +45,8 @@ func getUUID() (string, error) {
 		return out, nil
 	} else if runtime.GOOS == "linux" {
 		cmd := exec.Command("findmnt", "/", "-o", "UUID", "-n")
-		if b, err := cmd.CombinedOutput(); err != nil {
+		b, err := cmd.CombinedOutput()
+		if err != nil {
 			return "", err
 		}
 		out := string(b)
@@ -61,7 +64,7 @@ func GetUserNameByID(id int) (string, error) {
 	var name string
 	query := `SELECT username FROM users WHERE id=$1`
 	if err := conn.QueryRow(query, id).Scan(&name); err != nil {
-		return "", custom.USERNOTEXIST
+		return "", custom.NOTFOUND
 	}
 
 	return name, nil
@@ -101,12 +104,14 @@ uuid is unique to the computer, and is used on startup to indentify the device
 */
 func CreateAccount(username string, password string) error {
 	password = HashInfo(password)
-	if uuid, err := getUUID(); err != nil {
+	uuid, err := getUUID()
+	if err != nil {
 		return err
 	}
 
 	uuid = HashInfo(uuid)
-	if result, _ := GetUserID(username); result != 0 {
+	result, _ := GetUserID(username)
+	if result != 0 {
 		return custom.USERTAKEN
 	}
 	code := generateFriendCode()
@@ -119,16 +124,17 @@ func CreateAccount(username string, password string) error {
 
 	// Inserts that data inside of the datbase
 	query := `INSERT INTO users (username, nickname, password, friend_code, uuid) VALUES ($1, $2, $3, $4, $5)`
-	if _, err = conn.Exec(query, username, nickname, password, code, uuid); err != nil {
+	if _, err := conn.Exec(query, username, nickname, password, code, uuid); err != nil {
 		return err
 	}
 
 	privateKey, publicKey := encription.GenerateKeyPair(4098)
-	if err = encription.CreatePrivateEncryptFile(privateKey); err != nil {
+	if err := encription.CreatePrivateEncryptFile(privateKey); err != nil {
 		return err
 	}
 
-	if id, err := GetUserID(username); err != nil {
+	id, err := GetUserID(username)
+	if err != nil {
 		return err
 	}
 
@@ -170,7 +176,8 @@ func GetUserID(name string) (int, error) {
 Sets the user who is loggin in
 */
 func Login(username string, password string) error {
-	if uuid, err := getUUID(); err != nil {
+	uuid, err := getUUID()
+	if err != nil {
 		return err
 	}
 	uuid = HashInfo(uuid)
@@ -195,14 +202,18 @@ func Login(username string, password string) error {
 
 // Returns the current users id and sets the session
 func SetActiveSession() (int, error) {
-	if uuid, err := getUUID(); err != nil {
+	uuid, err := getUUID()
+	if err != nil {
 		return current_user, err
 	}
 
 	uuid = HashInfo(uuid)
 	query := `SELECT id FROM users WHERE uuid=$1 AND session=1`
-	if err = conn.QueryRow(query, uuid).Scan(&current_user); err != nil {
-		return err
+	if err := conn.QueryRow(query, uuid).Scan(&current_user); err != nil {
+		if err == pgx.ErrNoRows {
+			return current_user, nil
+		}
+		return current_user, err
 	}
 
 	return current_user, nil

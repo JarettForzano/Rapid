@@ -58,13 +58,17 @@ func EncryptSend(filesource string, user int, to_user string) error {
 		return err
 	}
 
-	KeyE, NonceE := encription.RSAEncryptItem(AESkey, publickey, nonce)
-	id, err := database.InsertRSA(NonceE, KeyE)
+	KeyE, NonceE, err := encription.RSAEncryptItem(AESkey, publickey, nonce)
 	if err != nil {
 		return err
 	}
 
-	if err = database.PerformTransaction(user, to_user, name, id); err != nil {
+	rsa_id, err := database.PerformTransaction(user, to_user, name)
+	if err != nil {
+		return err
+	}
+
+	if err := database.InsertRSA(NonceE, KeyE, rsa_id); err != nil {
 		return err
 	}
 
@@ -72,7 +76,7 @@ func EncryptSend(filesource string, user int, to_user string) error {
 		return err
 	}
 
-	// Deletes zip folder
+	// Deletes compressed file
 	if err = os.RemoveAll(encrypted_location); err != nil {
 		log.Println(err)
 	}
@@ -85,9 +89,13 @@ Recieves a file, decrypts it, and then uncompresses it
 */
 func RecieveDecrypt(user int, keypath string, file string, location string) error {
 	if _, err := os.Stat(keypath); err != nil {
-		return custom.NewError("No Key exists at this location")
+		return custom.INVALIDKEY
 	}
-	encodedname := database.HashInfo(file + database.GetUserNameByID(user))
+	user_name, err := database.GetUserNameByID(user)
+	if err != nil {
+		return err
+	}
+	encodedname := database.HashInfo(file + user_name)
 	current_dir, err := os.Getwd()
 	if err != nil {
 		return err
@@ -102,7 +110,10 @@ func RecieveDecrypt(user int, keypath string, file string, location string) erro
 	if err != nil {
 		return err
 	}
-	KeyD, NonceD := encription.RSADecryptItem(keypath, KeyE, NonceE)
+	KeyD, NonceD, err := encription.RSADecryptItem(keypath, KeyE, NonceE)
+	if err != nil {
+		return err
+	}
 
 	decrypt_here := filepath.Join(current_dir, compressed_name)
 
@@ -118,6 +129,7 @@ func RecieveDecrypt(user int, keypath string, file string, location string) erro
 		return err
 	}
 
+	// deletes encrypyted file
 	if err = os.RemoveAll(decrypt_here); err != nil {
 		return custom.NewError(err.Error())
 	}

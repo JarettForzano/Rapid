@@ -62,17 +62,22 @@ func appStartup() {
 			if err != nil {
 				return err
 			}
-			if c.Args().Get(0) != "Login" && id == 0 {
+			if c.Args().Get(1) != "login" && id == 0 {
 				return custom.NOTLOGGEDIN
 			}
+			user = id
 			return nil
 		},
 		After: func(c *cli.Context) error {
-			if c.BoolFlag("logout") {
+			if c.Bool("logout") {
 				if err := database.DeactivateSession(user); err != nil {
 					return err
 				}
-				fmt.Printf("User %s has been logged out\n", database.GetUserNameByID(user))
+				name, err := database.GetUserNameByID(user)
+				if err != nil {
+					return err
+				}
+				fmt.Printf("User %s has been logged out\n", name)
 			}
 			return nil
 		},
@@ -94,10 +99,15 @@ func appStartup() {
 						Aliases: []string{"i"},
 						Usage:   "info {Displays user information}",
 						Action: func(c *cli.Context) error {
-							if result, err := database.GetUserFriendCode(user); err != nil {
+							code, err := database.GetUserFriendCode(user)
+							if err != nil {
 								return err
 							}
-							fmt.Printf("| Username   %s | Friend code   %s |\n", database.GetUserNameByID(user), result)
+							name, err := database.GetUserNameByID(user)
+							if err != nil {
+								return err
+							}
+							fmt.Printf("| Username   %s | Friend code   %s |\n", name, code)
 
 							return nil
 						},
@@ -110,7 +120,11 @@ func appStartup() {
 							if err := database.Login(c.Args().First(), c.Args().Get(1)); err != nil {
 								return err
 							}
-							fmt.Printf("Currently Logged in as %s\n", database.GetUserNameByID(user))
+							name, err := database.GetUserNameByID(user)
+							if err != nil {
+								return err
+							}
+							fmt.Printf("Currently Logged in as %s\n", name)
 
 							return nil
 						},
@@ -124,10 +138,14 @@ func appStartup() {
 								return err
 							}
 
-							if err = database.Login(c.Args().First(), c.Args().Get(1)); err != nil {
+							if err := database.Login(c.Args().First(), c.Args().Get(1)); err != nil {
 								return err
 							}
-							fmt.Printf("Currently Logged in as %s\n", database.GetUserNameByID(user))
+							name, err := database.GetUserNameByID(user)
+							if err != nil {
+								return err
+							}
+							fmt.Printf("Currently Logged in as %s\n", name)
 
 							return nil
 						},
@@ -140,7 +158,11 @@ func appStartup() {
 							if err := database.DeactivateSession(user); err != nil {
 								return err
 							}
-							fmt.Printf("User %s has been logged out\n", database.GetUserNameByID(user))
+							name, err := database.GetUserNameByID(user)
+							if err != nil {
+								return err
+							}
+							fmt.Printf("User %s has been logged out\n", name)
 
 							return nil
 						},
@@ -263,7 +285,6 @@ func appStartup() {
 			&cli.BoolFlag{
 				Name:    "logout",
 				Usage:   "-logout {logs user out of session after command is ran, useful if you are only running one command and do not need to be logged in for a while}",
-				Value:   false,
 				Aliases: []string{"lo"},
 			},
 		},

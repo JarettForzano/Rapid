@@ -18,7 +18,8 @@ func UploadToMega(path string, from_user_id int, user_to string) error {
 	// Formats the file
 	encrypted_name := filepath.Base(path)
 
-	if current_dir, err := os.Getwd(); err != nil {
+	current_dir, err := os.Getwd()
+	if err != nil {
 		return err
 	}
 
@@ -39,7 +40,8 @@ func UploadToMega(path string, from_user_id int, user_to string) error {
 	cmd.Stderr = &stderr
 
 	// Runs cmd command
-	if err = cmd.Run(); err != nil {
+	err = cmd.Run()
+	if err != nil {
 		return err
 	}
 
@@ -77,7 +79,7 @@ func DownloadFromMega(user int, original string, file string, location string) e
 	}
 
 	// Removes the copy from the cloud so that no users can access it
-	if _, err = DeleteFromMega(user, file); err != nil {
+	if err := DeleteFromMega(user, file); err != nil {
 		return err
 	}
 

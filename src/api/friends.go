@@ -10,7 +10,11 @@ Handles adding a friend to the users friend list
 func AddFriend(friendCode string, id int) error {
 	var to_friend_id int
 	query := `SELECT id FROM users WHERE friend_code=$1`
-	if err := conn.QueryRow(query, friendCode).Scan(&to_friend_id); to_friend_id == 0 { // id has to be 0 if it does not exist since sql does not support null primary ids
+	if err := conn.QueryRow(query, friendCode).Scan(&to_friend_id); err != nil {
+		return err
+	}
+
+	if to_friend_id == 0 { // id has to be 0 if it does not exist since sql does not support null primary ids
 		return custom.USERNOTEXIST
 	}
 
@@ -19,7 +23,7 @@ func AddFriend(friendCode string, id int) error {
 	}
 
 	query = `INSERT INTO friends (user_one, user_two) VALUES ($1, $2)`
-	if _, err = conn.Exec(query, id, to_friend_id); err != nil {
+	if _, err := conn.Exec(query, id, to_friend_id); err != nil {
 		return err
 	}
 
@@ -32,10 +36,11 @@ Removes a friend from users friend list
 */
 func DeleteFriend(id int, username string) error {
 	query := `DELETE FROM friends WHERE (user_one=$1 AND user_two=$2) OR (user_one=$2 AND user_two=$1)`
-	if result, err := GetUserID(username); err != nil {
+	result, err := GetUserID(username)
+	if err != nil {
 		return err
 	}
-	if _, err = conn.Exec(query, id, result); err != nil {
+	if _, err := conn.Exec(query, id, result); err != nil {
 		return err
 	}
 
@@ -87,7 +92,8 @@ func GetFriendsList(id int) ([]Friend, error) {
 	) AS combined_data
 	GROUP BY nickname, friend_code`
 
-	if rows, err := conn.Query(query, id); err != nil {
+	rows, err := conn.Query(query, id)
+	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
