@@ -66,11 +66,13 @@ func appStartup() {
 
 	app := &cli.App{
 		Before: func(c *cli.Context) error {
-			err := database.SetActiveSession()
+			id, err := database.SetActiveSession()
 			if err != nil {
 				return err
 			}
-			user = database.GetCurrentId()
+			if c.Command.FullName() != "Login" && id == 0 {
+				return custom.NOTLOGGEDIN
+			}
 			return nil
 		},
 		Commands: []*cli.Command{

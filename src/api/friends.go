@@ -8,10 +8,6 @@ import (
 Handles adding a friend to the users friend list
 */
 func AddFriend(friendCode string, id int) error {
-	if id == 0 {
-		return custom.NOTLOGGEDIN
-	}
-
 	var to_friend_id int
 	query := `SELECT id FROM users WHERE friend_code=$1`
 	err := conn.QueryRow(query, friendCode).Scan(&to_friend_id)
@@ -37,10 +33,6 @@ func AddFriend(friendCode string, id int) error {
 Removes a friend from users friend list
 */
 func DeleteFriend(id int, username string) error {
-	if id == 0 {
-		return custom.NOTLOGGEDIN
-	}
-
 	query := `DELETE FROM friends WHERE (user_one=$1 AND user_two=$2) OR (user_one=$2 AND user_two=$1)`
 	result, err := GetUserID(username)
 	if err != nil {

@@ -16,10 +16,6 @@ import (
 Uploads a zip to the cloud
 */
 func UploadToMega(path string, from_user_id int, user_to string) error {
-
-	if from_user_id == 0 {
-		return custom.NOTLOGGEDIN
-	}
 	// Formats the file
 	split := strings.Split(path, "\\")
 	encrypted_name := split[len(split)-1]
@@ -55,11 +51,6 @@ func UploadToMega(path string, from_user_id int, user_to string) error {
 }
 
 func DownloadFromMega(user int, original string, file string, location string) error {
-
-	if user == 0 {
-		return custom.NOTLOGGEDIN
-	}
-
 	if !database.UserCanViewTransaction(user, original) {
 		return custom.TRANSACTIONNOTEXIST
 	}
@@ -102,11 +93,6 @@ func DownloadFromMega(user int, original string, file string, location string) e
 
 // Removes the file from the cloud
 func DeleteFromMega(user int, file string) error {
-
-	if user == 0 {
-		return custom.NOTLOGGEDIN
-	}
-
 	// Formats it for the mega cloud
 	cloud_dir := fmt.Sprintf("mega:/%s", file)
 

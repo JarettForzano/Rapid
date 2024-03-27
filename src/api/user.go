@@ -152,9 +152,6 @@ Retrieves a user's freind code based on their name, which is passed in
 */
 func GetUserFriendCode(id int) (string, error) {
 	var code string
-	if id == 0 {
-		return "", custom.NOTLOGGEDIN
-	}
 	query := `SELECT friend_code FROM users WHERE id=$1`
 	err := conn.QueryRow(query, id).Scan(&code)
 	if err != nil {
@@ -207,16 +204,16 @@ func Login(username string, password string) error {
 	return nil
 }
 
-// Returns the current users id
-func SetActiveSession() error {
+// Returns the current users id and sets the session
+func SetActiveSession() (int, error) {
 	uuid, err := getUUID()
 	if err != nil {
-		return err
+		return current_user, err
 	}
 	uuid = HashInfo(uuid)
 	query := `SELECT id FROM users WHERE uuid=$1 AND session=1`
 	conn.QueryRow(query, uuid).Scan(&current_user)
-	return nil
+	return current_user, nil
 }
 
 func GetCurrentId() int {

@@ -14,10 +14,6 @@ type Transaction struct {
 retrieves pending file transfer requests for a certain user
 */
 func GetPendingTransfers(id int) ([]Transaction, error) {
-	if id == 0 {
-		return nil, custom.NOTLOGGEDIN
-	}
-
 	query := `
 	SELECT nickname, filename
 	FROM transfer 
