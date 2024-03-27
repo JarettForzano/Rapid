@@ -1,6 +1,9 @@
 package database
 
-import custom "github.com/Zaikoa/rapid/src/handling"
+import (
+	custom "github.com/Zaikoa/rapid/src/handling"
+	"github.com/gogo/protobuf/test/custom"
+)
 
 type Transaction struct {
 	From_user string
@@ -12,7 +15,7 @@ retrieves pending file transfer requests for a certain user
 */
 func GetPendingTransfers(id int) ([]Transaction, error) {
 	if id == 0 {
-		return nil, custom.NewError("User must be logged in to use this method")
+		return nil, custom.NOTLOGGEDIN
 	}
 
 	query := `
@@ -50,7 +53,6 @@ func UserCanViewTransaction(id int, filename string) bool {
 	query := `SELECT id FROM transfer WHERE (from_user = $1 OR to_user = $2) AND filename = $3`
 	row := conn.QueryRow(query, id, id, filename)
 
-	// dummy value that will store the id and is not checked (just used to check if no rows)
 	var temp int // Temp cannot be null since sql does not support null primary keys
 	err := row.Scan(&temp)
 	if err != nil || temp == 0 {
@@ -86,7 +88,7 @@ func PerformTransaction(from_user_id int, user_to string, filename string, rsd i
 		}
 		return nil
 	}
-	return custom.NewError("Users are already friends or user does not exist")
+	return custom.ALREADYFRIENDS
 }
 
 /*

@@ -3,7 +3,6 @@ package database
 import (
 	"bufio"
 	"crypto/sha256"
-	"database/sql"
 	"encoding/hex"
 	"fmt"
 	"math/rand"
@@ -66,10 +65,11 @@ func getUUID() (string, error) {
 /*
 Retrieves a user's name based on their id, which is passed in
 */
-func GetUserNameByID(id int) (name string) {
+func GetUserNameByID(id int) string {
+	var name string
 	query := `SELECT username FROM users WHERE id=$1`
 	conn.QueryRow(query, id).Scan(&name)
-	return
+	return name
 }
 
 /*
@@ -111,9 +111,9 @@ func CreateAccount(username string, password string) error {
 		return err
 	}
 	uuid = HashInfo(uuid)
-	result, _ := alreadyExistsCheck(username)
+	result, _ := GetUserID(username)
 	if result != 0 {
-		return custom.NewError("Username has been taken")
+		return custom.USERTAKEN
 	}
 	code := generateFriendCode()
 
@@ -151,13 +151,9 @@ func CreateAccount(username string, password string) error {
 Retrieves a user's freind code based on their name, which is passed in
 */
 func GetUserFriendCode(id int) (string, error) {
-	if id == 0 {
-		return "", custom.NewError("User must be logged in to use this method")
-	}
-
 	var code string
 	if id == 0 {
-		return "", custom.NewError("User must be logged in to use this method")
+		return "", custom.NOTLOGGEDIN
 	}
 	query := `SELECT friend_code FROM users WHERE id=$1`
 	err := conn.QueryRow(query, id).Scan(&code)
@@ -174,24 +170,8 @@ func GetUserID(name string) (int, error) {
 	var id int
 	query := `SELECT id FROM users WHERE username=$1`
 	err := conn.QueryRow(query, name).Scan(&id)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return id, custom.NewError("User not found")
-		}
-		return id, err
-	}
-	return id, nil
-}
-
-/*
-If user does not exist, the id returns 0, this is because sql cannot have a null primary id
-*/
-func alreadyExistsCheck(username string) (int, error) {
-	var id int
-	query := `SELECT id FROM users WHERE username=$1`
-	err := conn.QueryRow(query, username).Scan(&id)
-	if err != nil {
-		return id, err
+	if err != nil || id == 0 {
+		return id, custom.NOTFOUND
 	}
 	return id, nil
 }
@@ -210,7 +190,7 @@ func Login(username string, password string) error {
 	query := `SELECT id FROM users WHERE username=$1 AND password=$2`
 	err = conn.QueryRow(query, username, password).Scan(&current_user)
 	if err != nil || current_user == 0 {
-		return custom.NewError("Username or password is wrong")
+		return custom.WRONGINFO
 	}
 
 	err = deactivateSessions(uuid) // Deactivates all other sessions on device before logging in user

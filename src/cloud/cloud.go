@@ -18,7 +18,7 @@ Uploads a zip to the cloud
 func UploadToMega(path string, from_user_id int, user_to string) error {
 
 	if from_user_id == 0 {
-		return custom.NewError("User must be logged in to use this method")
+		return custom.NOTLOGGEDIN
 	}
 	// Formats the file
 	split := strings.Split(path, "\\")
@@ -57,11 +57,11 @@ func UploadToMega(path string, from_user_id int, user_to string) error {
 func DownloadFromMega(user int, original string, file string, location string) error {
 
 	if user == 0 {
-		return custom.NewError("User must be logged in to use this method")
+		return custom.NOTLOGGEDIN
 	}
 
 	if !database.UserCanViewTransaction(user, original) {
-		return nil
+		return custom.TRANSACTIONNOTEXIST
 	}
 
 	// Gets the current directory the user is in
@@ -89,7 +89,7 @@ func DownloadFromMega(user int, original string, file string, location string) e
 	// Runs cmd command
 	err := cmd.Run()
 	if err != nil {
-		fmt.Println(fmt.Sprint(err) + ": " + stderr.String())
+		return custom.NewError(fmt.Sprint(err) + ": " + stderr.String())
 	}
 
 	// Removes the copy from the cloud so that no users can access it
@@ -101,10 +101,10 @@ func DownloadFromMega(user int, original string, file string, location string) e
 }
 
 // Removes the file from the cloud
-func DeleteFromMega(user int, file string) (bool, error) {
+func DeleteFromMega(user int, file string) error {
 
 	if user == 0 {
-		return false, custom.NewError("User must be logged in to use this method")
+		return custom.NOTLOGGEDIN
 	}
 
 	// Formats it for the mega cloud
@@ -127,9 +127,9 @@ func DeleteFromMega(user int, file string) (bool, error) {
 	// Runs cmd command
 	err := cmd.Run()
 	if err != nil {
-		return false, err
+		return custom.NewError(fmt.Sprint(err) + ": " + stderr.String())
 	}
 
-	return true, nil
+	return nil
 
 }

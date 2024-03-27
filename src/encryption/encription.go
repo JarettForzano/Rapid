@@ -11,30 +11,31 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
-	"log"
 	"os"
 	"os/exec"
 	"strings"
+
+	custom "github.com/Zaikoa/rapid/src/handling"
 )
 
 // EncryptWithPublicKey encrypts data with public key
-func EncryptWithPublicKey(msg []byte, pub *rsa.PublicKey) []byte {
+func EncryptWithPublicKey(msg []byte, pub *rsa.PublicKey) ([]byte, error) {
 	hash := sha512.New()
 	ciphertext, err := rsa.EncryptOAEP(hash, rand2.Reader, pub, msg, nil)
 	if err != nil {
-		log.Fatal(err)
+		return nil, custom.NewError(err.Error())
 	}
-	return ciphertext
+	return ciphertext, nil
 }
 
 // DecryptWithPrivateKey decrypts data with private key
-func DecryptWithPrivateKey(ciphertext []byte, priv *rsa.PrivateKey) []byte {
+func DecryptWithPrivateKey(ciphertext []byte, priv *rsa.PrivateKey) ([]byte, error) {
 	hash := sha512.New()
 	plaintext, err := rsa.DecryptOAEP(hash, rand2.Reader, priv, ciphertext, nil)
 	if err != nil {
-		log.Fatal(err)
+		return nil, custom.NewError(err.Error())
 	}
-	return plaintext
+	return plaintext, nil
 }
 
 // Compresses directory or folder into .tar.xz
@@ -53,7 +54,7 @@ func Compress(path string, name string) error {
 	// Runs cmd command
 	err := cmd.Run()
 	if err != nil {
-		return err
+		return custom.NewError(fmt.Sprint(err) + ": " + stderr.String())
 	}
 	return nil
 }
@@ -77,8 +78,7 @@ func Decompress(path string) error {
 	// Runs cmd command
 	err := cmd.Run()
 	if err != nil {
-		fmt.Println(fmt.Sprint(err) + ": " + stderr.String())
-		return err
+		return custom.NewError(fmt.Sprint(err) + ": " + stderr.String())
 	}
 	return nil
 }

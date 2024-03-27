@@ -1,58 +1,56 @@
 package database
 
 import (
-	"database/sql"
-
 	custom "github.com/Zaikoa/rapid/src/handling"
 )
 
 /*
 Handles adding a friend to the users friend list
 */
-func AddFriend(friendCode string, id int) (bool, error) {
+func AddFriend(friendCode string, id int) error {
 	if id == 0 {
-		return false, custom.NewError("User must be logged in to use this method")
+		return custom.NOTLOGGEDIN
 	}
 
 	var to_friend_id int
 	query := `SELECT id FROM users WHERE friend_code=$1`
 	err := conn.QueryRow(query, friendCode).Scan(&to_friend_id)
 
-	if err != nil || to_friend_id == 0 { // id has to be 0 if it does not exist since sql does not support null primary ids
-		return false, custom.NewError("User you are trying to add does not exist")
+	if to_friend_id == 0 { // id has to be 0 if it does not exist since sql does not support null primary ids
+		return custom.USERNOTEXIST
 	}
 
 	if AreMutualFriends(id, to_friend_id) {
-		return false, custom.NewError("User is already friends with the specified user")
+		return custom.ALREADYFRIENDS
 	}
 
 	query = `INSERT INTO friends (user_one, user_two) VALUES ($1, $2)`
 	_, err = conn.Exec(query, id, to_friend_id)
 	if err != nil {
-		return false, err
+		return err
 	}
-	return true, nil
+	return nil
 
 }
 
 /*
 Removes a friend from users friend list
 */
-func DeleteFriend(id int, username string) (bool, error) {
+func DeleteFriend(id int, username string) error {
 	if id == 0 {
-		return false, custom.NewError("User must be logged in to use this method")
+		return custom.NOTLOGGEDIN
 	}
 
 	query := `DELETE FROM friends WHERE (user_one=$1 AND user_two=$2) OR (user_one=$2 AND user_two=$1)`
 	result, err := GetUserID(username)
 	if err != nil {
-		return false, err
+		return err
 	}
 	_, err = conn.Exec(query, id, result)
 	if err != nil {
-		return false, err
+		return err
 	}
-	return true, nil
+	return nil
 }
 
 /*
@@ -65,7 +63,8 @@ func IsFriend(user_one_id int, user_two_id int) bool {
 	FROM friends
 	WHERE friends.user_one=$1 AND friends.user_two=$2`
 	err := conn.QueryRow(query, user_one_id, user_two_id).Scan(&temp)
-	if err == sql.ErrNoRows || temp == 0 { // primary id cannot be null so we must check if its 0 instead
+
+	if err != nil || temp == 0 { // primary id cannot be null so we must check if its 0 instead
 		return false
 	}
 	return true
