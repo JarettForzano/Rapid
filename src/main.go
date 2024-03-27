@@ -72,11 +72,9 @@ func appStartup() {
 				Name:  "login",
 				Usage: "login [Username] [Password] {Login to a users account}",
 				Action: func(c *cli.Context) error {
-					err := database.Login(c.Args().First(), c.Args().Get(1))
-					if err != nil {
+					if err := database.Login(c.Args().First(), c.Args().Get(1)); err != nil {
 						return err
 					}
-					user = database.GetCurrentId()
 					fmt.Printf("Currently Logged in as %s\n", database.GetUserNameByID(user))
 
 					return nil
@@ -86,8 +84,7 @@ func appStartup() {
 				Name:  "logout",
 				Usage: "logout {logs current user out of their session}",
 				Action: func(c *cli.Context) error {
-					err := database.DeactivateSession(user)
-					if err != nil {
+					if err := database.DeactivateSession(user); err != nil {
 						return err
 					}
 					fmt.Printf("User %s has been logged out\n", database.GetUserNameByID(user))
@@ -99,17 +96,13 @@ func appStartup() {
 				Name:  "create",
 				Usage: "create [Username] [Password] {Create a users account}",
 				Action: func(c *cli.Context) error {
-					err := database.CreateAccount(c.Args().First(), c.Args().Get(1))
-					if err != nil {
+					if err := database.CreateAccount(c.Args().First(), c.Args().Get(1)); err != nil {
 						return err
 					}
 
-					err = database.Login(c.Args().First(), c.Args().Get(1))
-					if err != nil {
+					if err = database.Login(c.Args().First(), c.Args().Get(1)); err != nil {
 						return err
 					}
-
-					user = database.GetCurrentId()
 					fmt.Printf("Currently Logged in as %s\n", database.GetUserNameByID(user))
 
 					return nil
@@ -128,11 +121,11 @@ func appStartup() {
 				Usage:   "user, u {Displays user information}",
 				Aliases: []string{"u"},
 				Action: func(c *cli.Context) error {
-					result, err := database.GetUserFriendCode(user)
-					if err != nil {
+					if result, err := database.GetUserFriendCode(user); err != nil {
 						return err
 					}
 					fmt.Printf("| Username   %s | Friend code   %s |\n", database.GetUserNameByID(user), result)
+
 					return nil
 				},
 			},
@@ -141,11 +134,11 @@ func appStartup() {
 				Usage:   "send, s [User] [Filepath] {Will send user file/folder}",
 				Aliases: []string{"s"},
 				Action: func(c *cli.Context) error {
-					err := transaction.EncryptSend(c.Args().Get(1), user, c.Args().First())
-					if err != nil {
+					if err := transaction.EncryptSend(c.Args().Get(1), user, c.Args().First()); err != nil {
 						return err
 					}
 					fmt.Println("File has been sent and will be waiting to be accepted")
+
 					return nil
 				},
 			},
@@ -158,11 +151,11 @@ func appStartup() {
 						Aliases: []string{"r"},
 						Usage:   "inbox recieve, r [Filename] {Recieves file from inbox}",
 						Action: func(c *cli.Context) error {
-							err := transaction.RecieveDecrypt(user, c.String("key"), c.Args().First(), "")
-							if err != nil {
+							if err := transaction.RecieveDecrypt(user, c.String("key"), c.Args().First(), ""); err != nil {
 								return err
 							}
 							fmt.Println("File has been received")
+
 							return nil
 						},
 					},
@@ -171,15 +164,11 @@ func appStartup() {
 						Aliases: []string{"rm"},
 						Usage:   "inbox remove, rm [Filename] {Removes file from inbox}",
 						Action: func(c *cli.Context) error {
-							result, err := cloud.DeleteFromMega(user, c.Args().First())
-							if err != nil {
-								fmt.Println(err)
+							if err := cloud.DeleteFromMega(user, c.Args().First()); err != nil {
+								return err
 							}
-							if result {
-								fmt.Println("File has been deleted")
-							} else {
-								fmt.Println("Could not delete the file from the inbox")
-							}
+							fmt.Println("File has been deleted")
+
 							return nil
 						},
 					},
@@ -188,11 +177,11 @@ func appStartup() {
 						Aliases: []string{"l"},
 						Usage:   "inbox list, l {Lists all messages in inbox}",
 						Action: func(c *cli.Context) error {
-							err := displayInbox(user)
-							if err != nil {
+							if err := displayInbox(user); err != nil {
 								return err
 							}
 							fmt.Println("Inbox has been displayed")
+
 							return nil
 						},
 					},
@@ -207,19 +196,11 @@ func appStartup() {
 						Aliases: []string{"a"},
 						Usage:   "friend add, a [Friend id] {Adds friend}",
 						Action: func(c *cli.Context) error {
-							result, err := database.AddFriend(c.Args().First(), user)
-							if err != nil {
+							if err := database.AddFriend(c.Args().First(), user); err != nil {
 								fmt.Println(err)
 							}
+							fmt.Println("Friend has been added")
 
-							if !result {
-								fmt.Println("There does not exist a user with that friend code.")
-
-							}
-
-							if result {
-								fmt.Println("Friend has been added")
-							}
 							return nil
 						},
 					},
@@ -228,13 +209,11 @@ func appStartup() {
 						Aliases: []string{"rm"},
 						Usage:   "friend remove, rm [Username] {Removes friend}",
 						Action: func(c *cli.Context) error {
-							result, err := database.DeleteFriend(user, c.Args().First())
-							if err != nil {
-								fmt.Println("Failed to remove friend", err)
+							if err := database.DeleteFriend(user, c.Args().First()); err != nil {
+								return err
 							}
-							if result {
-								fmt.Println("Friend has been deleted")
-							}
+							fmt.Println("Friend has been deleted")
+
 							return nil
 						},
 					},
@@ -243,11 +222,11 @@ func appStartup() {
 						Aliases: []string{"l"},
 						Usage:   "friend list, l {Lists all friends}",
 						Action: func(c *cli.Context) error {
-							err := displayFriends(user)
-							if err != nil {
+							if err := displayFriends(user); err != nil {
 								return err
 							}
 							fmt.Println("Friends list has been displayed")
+
 							return nil
 						},
 					},
@@ -276,13 +255,11 @@ func appStartup() {
 	}
 }
 
-// Main method for runnning the system
 func main() {
-
-	err := database.InitializeDatabase()
-	if err != nil {
+	if err := database.InitializeDatabase(); err != nil {
 		fmt.Println(err)
 	}
+
 	appStartup()
 
 }
