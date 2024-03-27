@@ -17,10 +17,6 @@ import (
 
 // displays friends list
 func displayFriends(user int) error {
-	if user == 0 {
-		return custom.NewError("User must be logged in to use this method")
-	}
-
 	friendsList, err := database.GetFriendsList(user)
 	if err != nil {
 		return err
@@ -40,10 +36,6 @@ func displayFriends(user int) error {
 
 // displays inbox
 func displayInbox(user int) error {
-	if user == 0 {
-		return custom.NewError("User must be logged in to use this method")
-	}
-
 	inbox, err := database.GetPendingTransfers(user)
 	if err != nil {
 		return err

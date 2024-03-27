@@ -17,10 +17,10 @@ import (
 // Generates a random 32 character string for encryption purposes
 func GenerateKey() (string, error) {
 	randomBytes := make([]byte, 32)
-	_, err := rand.Read(randomBytes)
-	if err != nil {
+	if _, err := rand.Read(randomBytes); err != nil {
 		return "", err
 	}
+
 	return hex.EncodeToString(randomBytes), nil
 }
 
@@ -64,19 +64,16 @@ func EncryptSend(filesource string, user int, to_user string) error {
 		return err
 	}
 
-	err = database.PerformTransaction(user, to_user, name, id)
-	if err != nil {
+	if err = database.PerformTransaction(user, to_user, name, id); err != nil {
 		return err
 	}
 
-	err = cloud.UploadToMega(encrypted_location, user, to_user)
-	if err != nil {
+	if err = cloud.UploadToMega(encrypted_location, user, to_user); err != nil {
 		return err
 	}
 
 	// Deletes zip folder
-	err = os.RemoveAll(encrypted_location)
-	if err != nil {
+	if err = os.RemoveAll(encrypted_location); err != nil {
 		log.Println(err)
 	}
 
@@ -96,8 +93,7 @@ func RecieveDecrypt(user int, keypath string, file string, location string) erro
 		return err
 	}
 	compressed_name := fmt.Sprintf("%s.tar.xz", encodedname)
-	err = cloud.DownloadFromMega(user, file, compressed_name, location)
-	if err != nil {
+	if err = cloud.DownloadFromMega(user, file, compressed_name, location); err != nil {
 		return err
 	}
 
@@ -109,31 +105,21 @@ func RecieveDecrypt(user int, keypath string, file string, location string) erro
 	KeyD, NonceD := encription.RSADecryptItem(keypath, KeyE, NonceE)
 
 	decrypt_here := filepath.Join(current_dir, compressed_name)
-	// Works up until here
-	err = encription.AESDecryptItem(decrypt_here, compressed_name, KeyD, NonceD)
-	if err != nil {
+
+	if err = encription.AESDecryptItem(decrypt_here, compressed_name, KeyD, NonceD); err != nil {
 		return err
 	}
 
-	// Works until here
-	err = encription.Decompress(decrypt_here)
-	if err != nil {
+	if err = encription.Decompress(decrypt_here); err != nil {
 		return err
 	}
 
-	//err = database.DeleteRSA(user, file)
-	if err != nil {
-		return err
-	}
-	//err = database.DeleteTransaction(user, file)
-	if err != nil {
+	if err = database.DeleteTransaction(user, file); err != nil {
 		return err
 	}
 
-	// Deletes zip folder
-	err = os.RemoveAll(decrypt_here)
-	if err != nil {
-		log.Println(err)
+	if err = os.RemoveAll(decrypt_here); err != nil {
+		return custom.NewError(err.Error())
 	}
 
 	return nil

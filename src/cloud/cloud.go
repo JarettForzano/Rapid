@@ -18,8 +18,7 @@ func UploadToMega(path string, from_user_id int, user_to string) error {
 	// Formats the file
 	encrypted_name := filepath.Base(path)
 
-	current_dir, err := os.Getwd()
-	if err != nil {
+	if current_dir, err := os.Getwd(); err != nil {
 		return err
 	}
 
@@ -40,8 +39,7 @@ func UploadToMega(path string, from_user_id int, user_to string) error {
 	cmd.Stderr = &stderr
 
 	// Runs cmd command
-	err = cmd.Run()
-	if err != nil {
+	if err = cmd.Run(); err != nil {
 		return err
 	}
 
@@ -65,7 +63,6 @@ func DownloadFromMega(user int, original string, file string, location string) e
 	directory := filepath.Join(home, "Rapid/.megacmd.json")
 	config := fmt.Sprintf(`-conf=%s`, directory)
 
-	// Calls cmd command to retrieve the file
 	cmd := exec.Command("megacmd", config, "get", cloud_dir, destination)
 	cmd.Dir = current_dir
 
@@ -75,17 +72,15 @@ func DownloadFromMega(user int, original string, file string, location string) e
 	cmd.Stdout = &out
 	cmd.Stderr = &stderr
 
-	// Runs cmd command
-	err := cmd.Run()
-	if err != nil {
+	if err := cmd.Run(); err != nil {
 		return custom.NewError(fmt.Sprint(err) + ": " + stderr.String())
 	}
 
 	// Removes the copy from the cloud so that no users can access it
-	_, err = DeleteFromMega(user, file)
-	if err != nil {
+	if _, err = DeleteFromMega(user, file); err != nil {
 		return err
 	}
+
 	return nil
 }
 
@@ -108,9 +103,7 @@ func DeleteFromMega(user int, file string) error {
 	cmd.Stdout = &out
 	cmd.Stderr = &stderr
 
-	// Runs cmd command
-	err := cmd.Run()
-	if err != nil {
+	if err := cmd.Run(); err != nil {
 		return custom.NewError(fmt.Sprint(err) + ": " + stderr.String())
 	}
 

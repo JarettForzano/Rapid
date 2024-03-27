@@ -51,11 +51,10 @@ func Compress(path string, name string) error {
 	cmd.Stdout = &out
 	cmd.Stderr = &stderr
 
-	// Runs cmd command
-	err := cmd.Run()
-	if err != nil {
+	if err := cmd.Run(); err != nil {
 		return custom.NewError(fmt.Sprint(err) + ": " + stderr.String())
 	}
+
 	return nil
 }
 
@@ -75,19 +74,19 @@ func Decompress(path string) error {
 	cmd.Stderr = &stderr
 
 	// Runs cmd command
-	err := cmd.Run()
-	if err != nil {
+	if err := cmd.Run(); err != nil {
 		return custom.NewError(fmt.Sprint(err) + ": " + stderr.String())
 	}
+
 	return nil
 }
 
 // Creates the private key text file for the user
 func CreatePrivateEncryptFile(privateKey *rsa.PrivateKey) error {
-	err := os.WriteFile("supersecretekey.txt", PrivateKeyToBytes(privateKey), 0644)
-	if err != nil {
+	if err := os.WriteFile("supersecretekey.txt", PrivateKeyToBytes(privateKey), 0644); err != nil {
 		return err
 	}
+
 	return nil
 }
 
