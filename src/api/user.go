@@ -138,7 +138,7 @@ func CreateAccount(username string, password string) error {
 		return err
 	}
 
-	if err = InsertPublicKey(id, string(encription.PublicKeyToBytes(publicKey))); err != nil {
+	if err = InsertPublicKey(id, encription.PublicKeyToBytes(publicKey)); err != nil {
 		return err
 	}
 	fmt.Println("Congrats! Heres your decription key. Dont lose it.....")

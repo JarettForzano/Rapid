@@ -88,11 +88,11 @@ func PerformTransaction(from_user_id int, user_to string, filename string) (int,
 /*
 Retrieves the key from the database that is used to encrypt the file
 */
-func RetrievePublicKey(id int) (string, error) {
-	var key string
-	query := `SELECT key FROM publickey WHERE users_id = $1`
+func RetrievePublicKey(id int) ([]byte, error) {
+	var key []byte
+	query := `SELECT key FROM publickey WHERE id = $1`
 	if err := conn.QueryRow(query, id).Scan(&key); err != nil {
-		return "", err
+		return nil, err
 	}
 
 	return key, nil
@@ -101,8 +101,8 @@ func RetrievePublicKey(id int) (string, error) {
 /*
 Inserts the public key into the userkey table
 */
-func InsertPublicKey(id int, key string) error {
-	query := `INSERT INTO publickey (users_id, key) VALUES ($1, $2)`
+func InsertPublicKey(id int, key []byte) error {
+	query := `INSERT INTO publickey (id, key) VALUES ($1, $2)`
 	if _, err := conn.Exec(query, id, key); err != nil {
 		return err
 	}
@@ -111,11 +111,11 @@ func InsertPublicKey(id int, key string) error {
 }
 
 /*
-Inserts the encrypted nounce and key into rsa table
+Inserts the encrypted nonce and key into rsa table
 */
-func InsertRSA(nounce []byte, key []byte, id int) error {
-	query := `INSERT INTO rsa (id, nounce, key) VALUES ($1, $2, $3)`
-	if _, err := conn.Exec(query, id, nounce, key); err != nil {
+func InsertRSA(nonce []byte, key []byte, id int) error {
+	query := `INSERT INTO rsa (id, nonce, key) VALUES ($1, $2, $3)`
+	if _, err := conn.Exec(query, id, nonce, key); err != nil {
 		return err
 	}
 
@@ -123,19 +123,19 @@ func InsertRSA(nounce []byte, key []byte, id int) error {
 }
 
 /*
-Returns the RSA encrypted nounce and key
+Returns the RSA encrypted nonce and key
 */
 func RetrieveRSA(user int, file string) ([]byte, []byte, error) {
-	var nounce, key []byte
+	var nonce, key []byte
 	query := `
-	SELECT nounce, key 
+	SELECT nonce, key 
 	FROM rsa 
 	INNER JOIN transfer ON transfer.id=rsa.id
 
 	WHERE to_user=$1 AND filename=$2`
-	if err := conn.QueryRow(query, user, file).Scan(&nounce, &key); err != nil {
+	if err := conn.QueryRow(query, user, file).Scan(&nonce, &key); err != nil {
 		return nil, nil, err
 	}
 
-	return nounce, key, nil
+	return nonce, key, nil
 }

@@ -19,14 +19,16 @@ CREATE TABLE IF NOT EXISTS users
 
 CREATE TABLE IF NOT EXISTS publickey
 (
-    users_id INTEGER NOT NULL,
-    key VARCHAR(1000)
+    id INTEGER,
+    key BYTEA,
+    FOREIGN KEY (id) REFERENCES users
+    ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS rsa
 (
     id INTEGER,
-    nounce BYTEA,
+    nonce BYTEA,
     key BYTEA,
     FOREIGN KEY (id) REFERENCES transfer
     ON DELETE CASCADE

@@ -93,10 +93,8 @@ func CreatePrivateEncryptFile(privateKey *rsa.PrivateKey) error {
 /*
 Encrypts location given using public key as a string
 */
-func RSAEncryptItem(key string, publickey string, nonce []byte) ([]byte, []byte, error) {
-
-	public_key_bytes := []byte(publickey) // Reverts key to byte to encrypt with
-	publicKey := BytesToPublicKey(public_key_bytes)
+func RSAEncryptItem(key string, publickey []byte, nonce []byte) ([]byte, []byte, error) {
+	publicKey := BytesToPublicKey(publickey)
 
 	encryptedaes, err := EncryptWithPublicKey([]byte(key), publicKey)
 	if err != nil {
@@ -120,11 +118,11 @@ func RSADecryptItem(keypath string, aes []byte, nonce []byte) ([]byte, []byte, e
 	if err != nil {
 		return nil, nil, err
 	}
-	decryptedNounce, err := DecryptWithPrivateKey(nonce, privateKey)
+	decryptedNonce, err := DecryptWithPrivateKey(nonce, privateKey)
 	if err != nil {
 		return nil, nil, err
 	}
-	return decryptedAes, decryptedNounce, nil
+	return decryptedAes, decryptedNonce, nil
 }
 
 /*
