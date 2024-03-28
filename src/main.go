@@ -54,6 +54,7 @@ func displayInbox(user int) error {
 
 func appStartup() {
 	var user int
+	var name string
 	userDir, _ := os.UserHomeDir()
 
 	app := &cli.App{
@@ -65,16 +66,19 @@ func appStartup() {
 			if c.Args().Get(1) != "login" && id == 0 {
 				return custom.NOTLOGGEDIN
 			}
+			if id != 0 {
+				current_user, err := database.GetUserNameByID(id)
+				if err != nil {
+					return err
+				}
+				name = current_user
+			}
 			user = id
 			return nil
 		},
 		After: func(c *cli.Context) error {
 			if c.Bool("logout") {
 				if err := database.DeactivateSession(user); err != nil {
-					return err
-				}
-				name, err := database.GetUserNameByID(user)
-				if err != nil {
 					return err
 				}
 				fmt.Printf("User %s has been logged out\n", name)
@@ -103,10 +107,6 @@ func appStartup() {
 							if err != nil {
 								return err
 							}
-							name, err := database.GetUserNameByID(user)
-							if err != nil {
-								return err
-							}
 							fmt.Printf("| Username   %s | Friend code   %s |\n", name, code)
 
 							return nil
@@ -120,10 +120,12 @@ func appStartup() {
 							if err := database.Login(c.Args().First(), c.Args().Get(1)); err != nil {
 								return err
 							}
-							name, err := database.GetUserNameByID(user)
+							user = database.GetCurrentId()
+							current_user, err := database.GetUserNameByID(user)
 							if err != nil {
 								return err
 							}
+							name = current_user
 							fmt.Printf("Currently Logged in as %s\n", name)
 
 							return nil
@@ -141,10 +143,6 @@ func appStartup() {
 							if err := database.Login(c.Args().First(), c.Args().Get(1)); err != nil {
 								return err
 							}
-							name, err := database.GetUserNameByID(user)
-							if err != nil {
-								return err
-							}
 							fmt.Printf("Currently Logged in as %s\n", name)
 
 							return nil
@@ -156,10 +154,6 @@ func appStartup() {
 						Usage:   "logout {logs current user out of their session}",
 						Action: func(c *cli.Context) error {
 							if err := database.DeactivateSession(user); err != nil {
-								return err
-							}
-							name, err := database.GetUserNameByID(user)
-							if err != nil {
 								return err
 							}
 							fmt.Printf("User %s has been logged out\n", name)

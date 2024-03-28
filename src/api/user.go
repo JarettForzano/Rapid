@@ -187,7 +187,6 @@ func Login(username string, password string) error {
 	if err = conn.QueryRow(query, username, password).Scan(&current_user); err != nil || current_user == 0 {
 		return custom.WRONGINFO
 	}
-
 	if err = deactivateSessions(uuid); err != nil {
 		return err
 	}
