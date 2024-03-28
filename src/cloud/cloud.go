@@ -7,7 +7,6 @@ import (
 	"os/exec"
 	"path/filepath"
 
-	database "github.com/Zaikoa/rapid/src/api"
 	custom "github.com/Zaikoa/rapid/src/handling"
 )
 
@@ -33,15 +32,7 @@ func UploadToMega(name string, from_user_id int, user_to string) error {
 	return nil
 }
 
-func DownloadFromMega(user int, original string, file string, location string) error {
-	if !database.UserCanViewTransaction(user, original) {
-		return custom.TRANSACTIONNOTEXIST
-	}
-
-	// Gets the current directory the user is in
-	current_dir, _ := os.Getwd()
-	destination := filepath.Join(current_dir, location, file)
-
+func DownloadFromMega(file string) error {
 	// Formats it for the mega cloud (readjusts the name to fit the hashing)
 	cloud_dir := fmt.Sprintf("mega:/%s", file)
 
@@ -50,21 +41,11 @@ func DownloadFromMega(user int, original string, file string, location string) e
 	directory := filepath.Join(home, "Rapid/.megacmd.json")
 	config := fmt.Sprintf(`-conf=%s`, directory)
 
-	cmd := exec.Command("megacmd", config, "get", cloud_dir, destination)
-	cmd.Dir = current_dir
+	location := filepath.Join(os.TempDir(), file)
+	cmd := exec.Command("megacmd", config, "get", cloud_dir, location)
 
-	// Error handing
-	var out bytes.Buffer
-	var stderr bytes.Buffer
-	cmd.Stdout = &out
-	cmd.Stderr = &stderr
-
-	if err := cmd.Run(); err != nil {
-		return custom.NewError(fmt.Sprint(err) + ": " + stderr.String())
-	}
-
-	// Removes the copy from the cloud so that no users can access it
-	if err := DeleteFromMega(user, file); err != nil {
+	err := cmd.Run()
+	if err != nil {
 		return err
 	}
 

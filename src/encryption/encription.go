@@ -9,8 +9,8 @@ import (
 	"crypto/rsa"
 	"crypto/sha512"
 	"encoding/hex"
-	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -53,23 +53,15 @@ func Compress(path string) ([]byte, error) {
 }
 
 // Decompresses directory or folder and returns it to original state
-func Decompress(path string) error {
+func Decompress(name string, path string, file string) error {
+	temp := filepath.Join(os.TempDir(), file)
+	cmd := exec.Command("tar", "--force-local", "-xf", temp)
 	current_dir, _ := os.Getwd()
 
-	name := filepath.Base(path) // Extracts the name of the file
-
-	cmd := exec.Command("tar", "-xf", name)
-	cmd.Dir = current_dir
-
-	// Error handing
-	var out bytes.Buffer
-	var stderr bytes.Buffer
-	cmd.Stdout = &out
-	cmd.Stderr = &stderr
-
-	// Runs cmd command
+	dir := filepath.Join(current_dir, path)
+	cmd.Dir = dir
 	if err := cmd.Run(); err != nil {
-		return custom.NewError(fmt.Sprint(err) + ": " + stderr.String())
+		return err
 	}
 
 	return nil
@@ -147,13 +139,15 @@ func AESEncryptionItem(name string, bytes []byte, keyString string) ([]byte, err
 /*
 Ecnrypts file at location given using private key path
 */
-func AESDecryptItem(location string, rename string, keyString []byte, nonce []byte) error {
+func AESDecryptItem(name string, keyString []byte, nonce []byte) error {
 	key, _ := hex.DecodeString(string(keyString))
+	location := filepath.Join(os.TempDir(), name)
 
 	bytes, err := os.ReadFile(location)
 	if err != nil {
 		return err
 	}
+
 	block, err := aes.NewCipher(key)
 	if err != nil {
 		return err
@@ -165,7 +159,7 @@ func AESDecryptItem(location string, rename string, keyString []byte, nonce []by
 	}
 
 	file, _ := aesgcm.Open(nil, nonce, bytes, nil)
-	err = os.WriteFile(rename, file, 0644)
+	err = os.WriteFile(location, file, fs.ModePerm)
 	if err != nil {
 		return err
 	}

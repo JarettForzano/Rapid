@@ -88,17 +88,24 @@ func RecieveDecrypt(user int, keypath string, file string, location string) erro
 	if _, err := os.Stat(keypath); err != nil {
 		return custom.INVALIDKEY
 	}
+	if !database.UserCanViewTransaction(user, file) {
+		return custom.TRANSACTIONNOTEXIST
+	}
+
 	user_name, err := database.GetUserNameByID(user)
 	if err != nil {
 		return err
 	}
 	encodedname := database.HashInfo(file + user_name)
-	current_dir, err := os.Getwd()
-	if err != nil {
+
+	compressed_name := fmt.Sprintf("%s.tar.xz", encodedname)
+	err = cloud.DownloadFromMega(compressed_name)
+	if err != nil { // Returns bytes of encrypted file
 		return err
 	}
-	compressed_name := fmt.Sprintf("%s.tar.xz", encodedname)
-	if err = cloud.DownloadFromMega(user, file, compressed_name, location); err != nil { // Returns bytes of encrypted file
+
+	// Removes the copy from the cloud so that no users can access it
+	if err := cloud.DeleteFromMega(user, compressed_name); err != nil {
 		return err
 	}
 
@@ -112,13 +119,11 @@ func RecieveDecrypt(user int, keypath string, file string, location string) erro
 		return err
 	}
 
-	decrypt_here := filepath.Join(current_dir, compressed_name)
-
-	if err = encription.AESDecryptItem(decrypt_here, compressed_name, KeyD, NonceD); err != nil { // Pass in bytes of encrypted file and then the file will be decrypted and put in the temp folder
+	if err = encription.AESDecryptItem(compressed_name, KeyD, NonceD); err != nil { // Pass in bytes of encrypted file and then the file will be decrypted and put in the temp folder
 		return err
 	}
 
-	if err = encription.Decompress(decrypt_here); err != nil { // Takes in the name of the decrypted file and then the file is decrypted into location passed in
+	if err = encription.Decompress(file, location, compressed_name); err != nil { // Takes in the name of the decrypted file and then the file is decrypted into location passed in
 		return err
 	}
 
@@ -127,8 +132,8 @@ func RecieveDecrypt(user int, keypath string, file string, location string) erro
 	}
 
 	// deletes encrypyted file
-	if err = os.RemoveAll(decrypt_here); err != nil {
-		return custom.NewError(err.Error())
+	if err = os.RemoveAll(filepath.Join(os.TempDir(), compressed_name)); err != nil {
+		log.Println(err)
 	}
 
 	return nil

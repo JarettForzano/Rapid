@@ -185,7 +185,7 @@ func appStartup() {
 						Aliases: []string{"r"},
 						Usage:   "inbox recieve, r [Filename] {Recieves file from inbox}",
 						Action: func(c *cli.Context) error {
-							if err := transaction.RecieveDecrypt(user, c.String("key"), c.Args().First(), ""); err != nil {
+							if err := transaction.RecieveDecrypt(user, c.String("key"), c.Args().First(), c.Args().Get(1)); err != nil {
 								return err
 							}
 							fmt.Println("File has been received")
