@@ -11,30 +11,31 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
-	"log"
 	"os"
 	"os/exec"
-	"strings"
+	"path/filepath"
+
+	custom "github.com/Zaikoa/rapid/src/handling"
 )
 
 // EncryptWithPublicKey encrypts data with public key
-func EncryptWithPublicKey(msg []byte, pub *rsa.PublicKey) []byte {
+func EncryptWithPublicKey(msg []byte, pub *rsa.PublicKey) ([]byte, error) {
 	hash := sha512.New()
 	ciphertext, err := rsa.EncryptOAEP(hash, rand2.Reader, pub, msg, nil)
 	if err != nil {
-		log.Fatal(err)
+		return nil, custom.NewError(err.Error())
 	}
-	return ciphertext
+	return ciphertext, nil
 }
 
 // DecryptWithPrivateKey decrypts data with private key
-func DecryptWithPrivateKey(ciphertext []byte, priv *rsa.PrivateKey) []byte {
+func DecryptWithPrivateKey(ciphertext []byte, priv *rsa.PrivateKey) ([]byte, error) {
 	hash := sha512.New()
 	plaintext, err := rsa.DecryptOAEP(hash, rand2.Reader, priv, ciphertext, nil)
 	if err != nil {
-		log.Fatal(err)
+		return nil, custom.NewError(err.Error())
 	}
-	return plaintext
+	return plaintext, nil
 }
 
 // Compresses directory or folder into .tar.xz
@@ -50,11 +51,10 @@ func Compress(path string, name string) error {
 	cmd.Stdout = &out
 	cmd.Stderr = &stderr
 
-	// Runs cmd command
-	err := cmd.Run()
-	if err != nil {
-		return err
+	if err := cmd.Run(); err != nil {
+		return custom.NewError(fmt.Sprint(err) + ": " + stderr.String())
 	}
+
 	return nil
 }
 
@@ -62,8 +62,7 @@ func Compress(path string, name string) error {
 func Decompress(path string) error {
 	current_dir, _ := os.Getwd()
 
-	temp := strings.Split(path, "\\")
-	name := temp[len(temp)-1] // Extracts the name of the file
+	name := filepath.Base(path) // Extracts the name of the file
 
 	cmd := exec.Command("tar", "-xf", name)
 	cmd.Dir = current_dir
@@ -75,49 +74,55 @@ func Decompress(path string) error {
 	cmd.Stderr = &stderr
 
 	// Runs cmd command
-	err := cmd.Run()
-	if err != nil {
-		fmt.Println(fmt.Sprint(err) + ": " + stderr.String())
-		return err
+	if err := cmd.Run(); err != nil {
+		return custom.NewError(fmt.Sprint(err) + ": " + stderr.String())
 	}
+
 	return nil
 }
 
 // Creates the private key text file for the user
 func CreatePrivateEncryptFile(privateKey *rsa.PrivateKey) error {
-	err := os.WriteFile("supersecretekey.txt", PrivateKeyToBytes(privateKey), 0644)
-	if err != nil {
+	if err := os.WriteFile("supersecretekey.txt", PrivateKeyToBytes(privateKey), 0644); err != nil {
 		return err
 	}
+
 	return nil
 }
 
 /*
 Encrypts location given using public key as a string
 */
-func RSAEncryptItem(key string, publickey string, nonce []byte) ([]byte, []byte) {
+func RSAEncryptItem(key string, publickey []byte, nonce []byte) ([]byte, []byte, error) {
+	publicKey := BytesToPublicKey(publickey)
 
-	public_key_bytes := []byte(publickey) // Reverts key to byte to encrypt with
-	publicKey := BytesToPublicKey(public_key_bytes)
-
-	encryptedaes := EncryptWithPublicKey([]byte(key), publicKey)
-	encryptedNonce := EncryptWithPublicKey(nonce, publicKey)
-
-	return encryptedaes, encryptedNonce
+	encryptedaes, err := EncryptWithPublicKey([]byte(key), publicKey)
+	if err != nil {
+		return nil, nil, err
+	}
+	encryptedNonce, err := EncryptWithPublicKey(nonce, publicKey)
+	if err != nil {
+		return nil, nil, err
+	}
+	return encryptedaes, encryptedNonce, nil
 }
 
 /*
 Decrypts file at location given using private key path
 */
-func RSADecryptItem(keypath string, aes []byte, nonce []byte) ([]byte, []byte) {
+func RSADecryptItem(keypath string, aes []byte, nonce []byte) ([]byte, []byte, error) {
 	private_key_bytes, _ := os.ReadFile(keypath)
 	privateKey := BytesToPrivateKey(private_key_bytes)
 
-	decryptedAes := DecryptWithPrivateKey(aes, privateKey)
-
-	decryptedNounce := DecryptWithPrivateKey(nonce, privateKey)
-
-	return decryptedAes, decryptedNounce
+	decryptedAes, err := DecryptWithPrivateKey(aes, privateKey)
+	if err != nil {
+		return nil, nil, err
+	}
+	decryptedNonce, err := DecryptWithPrivateKey(nonce, privateKey)
+	if err != nil {
+		return nil, nil, err
+	}
+	return decryptedAes, decryptedNonce, nil
 }
 
 /*
@@ -126,8 +131,10 @@ Ecnrypts file at location given using private key path
 func AESEncryptionItem(location string, rename string, keyString string) ([]byte, error) {
 	key, _ := hex.DecodeString(keyString)
 
-	v, _ := os.ReadFile(location)
-
+	bytes, err := os.ReadFile(location)
+	if err != nil {
+		return nil, err
+	}
 	block, err := aes.NewCipher(key)
 	if err != nil {
 		return nil, err
@@ -141,7 +148,7 @@ func AESEncryptionItem(location string, rename string, keyString string) ([]byte
 		return nil, err
 	}
 
-	ciphertext := aesgcm.Seal(nil, nonce, v, nil)
+	ciphertext := aesgcm.Seal(nil, nonce, bytes, nil)
 	os.WriteFile(rename, ciphertext, 0644)
 	return nonce, nil
 }
@@ -152,8 +159,10 @@ Ecnrypts file at location given using private key path
 func AESDecryptItem(location string, rename string, keyString []byte, nonce []byte) error {
 	key, _ := hex.DecodeString(string(keyString))
 
-	v, _ := os.ReadFile(location)
-
+	bytes, err := os.ReadFile(location)
+	if err != nil {
+		return err
+	}
 	block, err := aes.NewCipher(key)
 	if err != nil {
 		return err
@@ -164,7 +173,10 @@ func AESDecryptItem(location string, rename string, keyString []byte, nonce []by
 		return err
 	}
 
-	file, _ := aesgcm.Open(nil, nonce, v, nil)
-	os.WriteFile(rename, file, 0644)
+	file, _ := aesgcm.Open(nil, nonce, bytes, nil)
+	err = os.WriteFile(rename, file, 0644)
+	if err != nil {
+		return err
+	}
 	return nil
 }

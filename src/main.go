@@ -17,21 +17,17 @@ import (
 
 // displays friends list
 func displayFriends(user int) error {
-	if user == 0 {
-		return custom.NewError("User must be logged in to use this method")
-	}
-
 	friendsList, err := database.GetFriendsList(user)
 	if err != nil {
 		return err
 	}
 	t := table.NewWriter()
 	t.SetOutputMirror(os.Stdout)
-	t.AppendHeader(table.Row{"Name", "Friend Code"})
+	t.AppendHeader(table.Row{"Nickname", "Username", "Friend Code"})
 	for _, friend := range friendsList {
-		fmt.Println(friend.Name, friend.FriendCode)
+		fmt.Println(friend.Nickname, friend.Username, friend.FriendCode)
 		t.AppendRows([]table.Row{
-			{friend.Name, friend.FriendCode},
+			{friend.Nickname, friend.Username, friend.FriendCode},
 		})
 	}
 	t.Render()
@@ -40,10 +36,6 @@ func displayFriends(user int) error {
 
 // displays inbox
 func displayInbox(user int) error {
-	if user == 0 {
-		return custom.NewError("User must be logged in to use this method")
-	}
-
 	inbox, err := database.GetPendingTransfers(user)
 	if err != nil {
 		return err
@@ -62,65 +54,38 @@ func displayInbox(user int) error {
 
 func appStartup() {
 	var user int
+	var name string
 	userDir, _ := os.UserHomeDir()
 
 	app := &cli.App{
 		Before: func(c *cli.Context) error {
-			err := database.SetActiveSession()
+			id, err := database.SetActiveSession()
 			if err != nil {
 				return err
 			}
-			user = database.GetCurrentId()
+			if (c.Args().Get(1) != "login" && c.Args().Get(1) != "create") && id == 0 {
+				return custom.NOTLOGGEDIN
+			}
+			if id != 0 {
+				current_user, err := database.GetUserNameByID(id)
+				if err != nil {
+					return err
+				}
+				name = current_user
+			}
+			user = id
+			return nil
+		},
+		After: func(c *cli.Context) error {
+			if c.Bool("logout") {
+				if err := database.DeactivateSession(user); err != nil {
+					return err
+				}
+				fmt.Printf("User %s has been logged out\n", name)
+			}
 			return nil
 		},
 		Commands: []*cli.Command{
-			{
-				Name:  "login",
-				Usage: "login [Username] [Password] {Login to a users account}",
-				Action: func(c *cli.Context) error {
-					err := database.Login(c.Args().First(), c.Args().Get(1))
-					if err != nil {
-						return err
-					}
-					user = database.GetCurrentId()
-					fmt.Printf("Currently Logged in as %s\n", database.GetUserNameByID(user))
-
-					return nil
-				},
-			},
-			{
-				Name:  "logout",
-				Usage: "logout {logs current user out of their session}",
-				Action: func(c *cli.Context) error {
-					err := database.DeactivateSession(user)
-					if err != nil {
-						return err
-					}
-					fmt.Printf("User %s has been logged out\n", database.GetUserNameByID(user))
-
-					return nil
-				},
-			},
-			{
-				Name:  "create",
-				Usage: "create [Username] [Password] {Create a users account}",
-				Action: func(c *cli.Context) error {
-					err := database.CreateAccount(c.Args().First(), c.Args().Get(1))
-					if err != nil {
-						return err
-					}
-
-					err = database.Login(c.Args().First(), c.Args().Get(1))
-					if err != nil {
-						return err
-					}
-
-					user = database.GetCurrentId()
-					fmt.Printf("Currently Logged in as %s\n", database.GetUserNameByID(user))
-
-					return nil
-				},
-			},
 			{
 				Name:  "help",
 				Usage: "help {Displays all commands and information}",
@@ -130,29 +95,85 @@ func appStartup() {
 				},
 			},
 			{
-				Name:    "user",
-				Usage:   "user, u {Displays user information}",
-				Aliases: []string{"u"},
-				Action: func(c *cli.Context) error {
-					result, err := database.GetUserFriendCode(user)
-					if err != nil {
-						return err
-					}
-					fmt.Printf("| Username   %s | Friend code   %s |\n", database.GetUserNameByID(user), result)
-					return nil
-				},
-			},
-			{
-				Name:    "send",
-				Usage:   "send, s [User] [Filepath] {Will send user file/folder}",
-				Aliases: []string{"s"},
-				Action: func(c *cli.Context) error {
-					err := transaction.EncryptSend(c.Args().Get(1), user, c.Args().First())
-					if err != nil {
-						return err
-					}
-					fmt.Println("File has been sent and will be waiting to be accepted")
-					return nil
+				Name:  "user",
+				Usage: "user, u {Displays user information}",
+				Subcommands: []*cli.Command{
+					{
+						Name:    "info",
+						Aliases: []string{"i"},
+						Usage:   "info {Displays user information}",
+						Action: func(c *cli.Context) error {
+							code, err := database.GetUserFriendCode(user)
+							if err != nil {
+								return err
+							}
+							fmt.Printf("| Username   %s | Friend code   %s |\n", name, code)
+
+							return nil
+						},
+					},
+					{
+						Name:    "login",
+						Aliases: []string{"li"},
+						Usage:   "login [Username] [Password] {Login to a users account}",
+						Action: func(c *cli.Context) error {
+							if err := database.Login(c.Args().First(), c.Args().Get(1)); err != nil {
+								return err
+							}
+							user = database.GetCurrentId()
+							current_user, err := database.GetUserNameByID(user)
+							if err != nil {
+								return err
+							}
+							name = current_user
+							fmt.Printf("Currently Logged in as %s\n", name)
+
+							return nil
+						},
+					},
+					{
+						Name:    "create",
+						Aliases: []string{"c"},
+						Usage:   "create [Username] [Password] {Create a users account}",
+						Action: func(c *cli.Context) error {
+							if err := database.CreateAccount(c.Args().First(), c.Args().Get(1)); err != nil {
+								return err
+							}
+
+							if err := database.Login(c.Args().First(), c.Args().Get(1)); err != nil {
+								return err
+							}
+							fmt.Printf("Currently Logged in as %s\n", name)
+
+							return nil
+						},
+					},
+					{
+						Name:    "logout",
+						Aliases: []string{"lo"},
+						Usage:   "logout {logs current user out of their session}",
+						Action: func(c *cli.Context) error {
+							if err := database.DeactivateSession(user); err != nil {
+								return err
+							}
+							fmt.Printf("User %s has been logged out\n", name)
+
+							return nil
+						},
+					},
+					{
+						Name:    "send",
+						Usage:   "send, s [User] [Filepath] {Will send user file/folder}",
+						Aliases: []string{"s"},
+						Action: func(c *cli.Context) error {
+							if err := transaction.EncryptSend(c.Args().Get(1), user, c.Args().First()); err != nil {
+								return err
+							}
+							fmt.Println("File has been sent and will be waiting to be accepted")
+
+							return nil
+						},
+					},
 				},
 			},
 			{
@@ -164,11 +185,11 @@ func appStartup() {
 						Aliases: []string{"r"},
 						Usage:   "inbox recieve, r [Filename] {Recieves file from inbox}",
 						Action: func(c *cli.Context) error {
-							err := transaction.RecieveDecrypt(user, c.String("key"), c.Args().First(), "")
-							if err != nil {
+							if err := transaction.RecieveDecrypt(user, c.String("key"), c.Args().First(), ""); err != nil {
 								return err
 							}
 							fmt.Println("File has been received")
+
 							return nil
 						},
 					},
@@ -177,15 +198,11 @@ func appStartup() {
 						Aliases: []string{"rm"},
 						Usage:   "inbox remove, rm [Filename] {Removes file from inbox}",
 						Action: func(c *cli.Context) error {
-							result, err := cloud.DeleteFromMega(user, c.Args().First())
-							if err != nil {
-								fmt.Println(err)
+							if err := cloud.DeleteFromMega(user, c.Args().First()); err != nil {
+								return err
 							}
-							if result {
-								fmt.Println("File has been deleted")
-							} else {
-								fmt.Println("Could not delete the file from the inbox")
-							}
+							fmt.Println("File has been deleted")
+
 							return nil
 						},
 					},
@@ -194,11 +211,11 @@ func appStartup() {
 						Aliases: []string{"l"},
 						Usage:   "inbox list, l {Lists all messages in inbox}",
 						Action: func(c *cli.Context) error {
-							err := displayInbox(user)
-							if err != nil {
+							if err := displayInbox(user); err != nil {
 								return err
 							}
 							fmt.Println("Inbox has been displayed")
+
 							return nil
 						},
 					},
@@ -213,19 +230,11 @@ func appStartup() {
 						Aliases: []string{"a"},
 						Usage:   "friend add, a [Friend id] {Adds friend}",
 						Action: func(c *cli.Context) error {
-							result, err := database.AddFriend(c.Args().First(), user)
-							if err != nil {
+							if err := database.AddFriend(c.Args().First(), user); err != nil {
 								fmt.Println(err)
 							}
+							fmt.Println("Friend has been added")
 
-							if !result {
-								fmt.Println("There does not exist a user with that friend code.")
-
-							}
-
-							if result {
-								fmt.Println("Friend has been added")
-							}
 							return nil
 						},
 					},
@@ -234,13 +243,11 @@ func appStartup() {
 						Aliases: []string{"rm"},
 						Usage:   "friend remove, rm [Username] {Removes friend}",
 						Action: func(c *cli.Context) error {
-							result, err := database.DeleteFriend(user, c.Args().First())
-							if err != nil {
-								fmt.Println("Failed to remove friend", err)
+							if err := database.DeleteFriend(user, c.Args().First()); err != nil {
+								return err
 							}
-							if result {
-								fmt.Println("Friend has been deleted")
-							}
+							fmt.Println("Friend has been deleted")
+
 							return nil
 						},
 					},
@@ -249,11 +256,11 @@ func appStartup() {
 						Aliases: []string{"l"},
 						Usage:   "friend list, l {Lists all friends}",
 						Action: func(c *cli.Context) error {
-							err := displayFriends(user)
-							if err != nil {
+							if err := displayFriends(user); err != nil {
 								return err
 							}
 							fmt.Println("Friends list has been displayed")
+
 							return nil
 						},
 					},
@@ -263,12 +270,16 @@ func appStartup() {
 
 		Flags: []cli.Flag{
 			&cli.StringFlag{
-
 				Name:        "key",
 				Usage:       "-key, -k [Path To Key] {Specifies path to encryption key}",
 				Value:       filepath.Join(userDir, "Rapid", "supersecretekey.txt"),
 				Destination: &userDir,
 				Aliases:     []string{"k"},
+			},
+			&cli.BoolFlag{
+				Name:    "logout",
+				Usage:   "-logout {logs user out of session after command is ran, useful if you are only running one command and do not need to be logged in for a while}",
+				Aliases: []string{"lo"},
 			},
 		},
 		EnableBashCompletion: true,
@@ -282,13 +293,11 @@ func appStartup() {
 	}
 }
 
-// Main method for runnning the system
 func main() {
-
-	err := database.InitializeDatabase()
-	if err != nil {
+	if err := database.InitializeDatabase(); err != nil {
 		fmt.Println(err)
 	}
+
 	appStartup()
 
 }

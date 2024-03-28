@@ -34,8 +34,7 @@ func GetConn() (*pgx.Conn, error) {
 	directory := filepath.Join(home, "Rapid/.sql.json")
 
 	var sql Sql
-	err := parseSqlFile(&sql, directory)
-	if err != nil {
+	if err := parseSqlFile(&sql, directory); err != nil {
 		fmt.Println(err)
 	}
 	connConfig := pgx.ConnConfig{
@@ -60,8 +59,7 @@ func parseSqlFile(sql *Sql, path string) error {
 	if err != nil {
 		return err
 	}
-	err = json.Unmarshal(data, &sql)
-	if err != nil {
+	if err = json.Unmarshal(data, &sql); err != nil {
 		return err
 	}
 	return nil
@@ -77,8 +75,7 @@ func InitializeDatabase() error {
 	}
 
 	// Execute the SQL file
-	_, err = conn.Exec(string(path))
-	if err != nil {
+	if _, err = conn.Exec(string(path)); err != nil {
 		return fmt.Errorf("Error executing SQL file: %v", err)
 	}
 	return nil

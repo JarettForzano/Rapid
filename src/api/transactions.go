@@ -1,6 +1,8 @@
 package database
 
-import custom "github.com/Zaikoa/rapid/src/handling"
+import (
+	custom "github.com/Zaikoa/rapid/src/handling"
+)
 
 type Transaction struct {
 	From_user string
@@ -11,17 +13,12 @@ type Transaction struct {
 retrieves pending file transfer requests for a certain user
 */
 func GetPendingTransfers(id int) ([]Transaction, error) {
-	if id == 0 {
-		return nil, custom.NewError("User must be logged in to use this method")
-	}
-
 	query := `
 	SELECT nickname, filename
 	FROM transfer 
 	INNER JOIN users ON transfer.from_user = users.id
 	WHERE to_user=$1`
 	rows, err := conn.Query(query, id)
-
 	if err != nil {
 		return nil, err
 	}
@@ -50,10 +47,8 @@ func UserCanViewTransaction(id int, filename string) bool {
 	query := `SELECT id FROM transfer WHERE (from_user = $1 OR to_user = $2) AND filename = $3`
 	row := conn.QueryRow(query, id, id, filename)
 
-	// dummy value that will store the id and is not checked (just used to check if no rows)
 	var temp int // Temp cannot be null since sql does not support null primary keys
-	err := row.Scan(&temp)
-	if err != nil || temp == 0 {
+	if err := row.Scan(&temp); err != nil || temp == 0 {
 		return false
 	}
 
@@ -65,8 +60,7 @@ Deletes a transaction record based on the given id
 */
 func DeleteTransaction(id int, filename string) error {
 	query := `DELETE FROM transfer WHERE to_user=$1 AND filename=$2`
-	_, err := conn.Exec(query, id, filename)
-	if err != nil {
+	if _, err := conn.Exec(query, id, filename); err != nil {
 		return err
 	}
 	return nil
@@ -75,30 +69,30 @@ func DeleteTransaction(id int, filename string) error {
 /*
 Enters the information of a transaction to the database for later referal
 */
-func PerformTransaction(from_user_id int, user_to string, filename string, rsd int) error {
-	to_user_id, _ := GetUserID(user_to)
-
-	if AreMutualFriends(from_user_id, to_user_id) {
-		query := `INSERT INTO transfer (from_user, to_user, filename, rsa_id) VALUES ($1,$2,$3,$4)`
-		_, err := conn.Exec(query, from_user_id, to_user_id, filename, rsd)
-		if err != nil {
-			return err
-		}
-		return nil
+func PerformTransaction(from_user_id int, user_to string, filename string) (int, error) {
+	var id int
+	to_user_id, err := GetUserID(user_to)
+	if err != nil {
+		return id, err
 	}
-	return custom.NewError("Users are already friends or user does not exist")
+	if AreMutualFriends(from_user_id, to_user_id) {
+		query := `INSERT INTO transfer (from_user, to_user, filename) VALUES ($1,$2,$3) RETURNING id`
+		if err := conn.QueryRow(query, from_user_id, to_user_id, filename).Scan(&id); err != nil {
+			return id, err
+		}
+		return id, nil
+	}
+	return id, custom.ALREADYFRIENDS
 }
 
 /*
 Retrieves the key from the database that is used to encrypt the file
 */
-func RetrievePublicKey(id int) (string, error) {
-	var key string
-	query := `SELECT key FROM publickey WHERE users_id = $1`
-	err := conn.QueryRow(query, id).Scan(&key)
-
-	if err != nil {
-		return "", err
+func RetrievePublicKey(id int) ([]byte, error) {
+	var key []byte
+	query := `SELECT key FROM publickey WHERE id = $1`
+	if err := conn.QueryRow(query, id).Scan(&key); err != nil {
+		return nil, err
 	}
 
 	return key, nil
@@ -107,44 +101,41 @@ func RetrievePublicKey(id int) (string, error) {
 /*
 Inserts the public key into the userkey table
 */
-func InsertPublicKey(id int, key string) error {
-	query := `INSERT INTO publickey (users_id, key) VALUES ($1, $2)`
-	_, err := conn.Exec(query, id, key)
-	if err != nil {
+func InsertPublicKey(id int, key []byte) error {
+	query := `INSERT INTO publickey (id, key) VALUES ($1, $2)`
+	if _, err := conn.Exec(query, id, key); err != nil {
 		return err
 	}
+
 	return nil
 }
 
 /*
-Inserts the encrypted nounce and key into rsa table
+Inserts the encrypted nonce and key into rsa table
 */
-func InsertRSA(nounce []byte, key []byte) (int, error) {
-	var id int
-	query := `INSERT INTO rsa (nounce, key) VALUES ($1, $2) RETURNING id`
-	err := conn.QueryRow(query, nounce, key).Scan(&id)
-	if err != nil {
-		return 0, err
+func InsertRSA(nonce []byte, key []byte, id int) error {
+	query := `INSERT INTO rsa (id, nonce, key) VALUES ($1, $2, $3)`
+	if _, err := conn.Exec(query, id, nonce, key); err != nil {
+		return err
 	}
-	return id, nil
+
+	return nil
 }
 
 /*
-Returns the RSA encrypted nounce and key
+Returns the RSA encrypted nonce and key
 */
 func RetrieveRSA(user int, file string) ([]byte, []byte, error) {
-	var nounce []byte
-	var key []byte
+	var nonce, key []byte
 	query := `
-	SELECT nounce, key 
+	SELECT nonce, key 
 	FROM rsa 
-	INNER JOIN transfer ON transfer.rsa_id=rsa.rsa_id
+	INNER JOIN transfer ON transfer.id=rsa.id
 
 	WHERE to_user=$1 AND filename=$2`
-	err := conn.QueryRow(query, user, file).Scan(&nounce, &key)
-	if err != nil {
+	if err := conn.QueryRow(query, user, file).Scan(&nonce, &key); err != nil {
 		return nil, nil, err
 	}
 
-	return nounce, key, nil
+	return nonce, key, nil
 }
