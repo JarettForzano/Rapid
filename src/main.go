@@ -63,7 +63,7 @@ func appStartup() {
 			if err != nil {
 				return err
 			}
-			if c.Args().Get(1) != "login" && id == 0 {
+			if (c.Args().Get(1) != "login" && c.Args().Get(1) != "create") && id == 0 {
 				return custom.NOTLOGGEDIN
 			}
 			if id != 0 {
