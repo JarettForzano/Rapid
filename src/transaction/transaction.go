@@ -37,7 +37,7 @@ func EncryptSend(filesource string, user int, to_user string) error {
 	encodedname := database.HashInfo(name + to_user)
 	compressed_name := fmt.Sprintf("%s.tar.xz", encodedname)
 
-	encription.Compress(filesource, compressed_name)
+	encription.Compress(filesource, compressed_name) // Returns the compressed files bytes
 
 	current_dir, err := os.Getwd()
 	if err != nil {
@@ -45,7 +45,7 @@ func EncryptSend(filesource string, user int, to_user string) error {
 	}
 	encrypted_location := filepath.Join(current_dir, compressed_name)
 
-	nonce, err := encription.AESEncryptionItem(encrypted_location, compressed_name, AESkey)
+	nonce, err := encription.AESEncryptionItem(encrypted_location, compressed_name, AESkey) // pass in bytes and creates an encrypted file located in temp folder
 	if err != nil {
 		return err
 	}
@@ -72,12 +72,12 @@ func EncryptSend(filesource string, user int, to_user string) error {
 		return err
 	}
 
-	if err = cloud.UploadToMega(encrypted_location, user, to_user); err != nil {
+	if err = cloud.UploadToMega(encrypted_location, user, to_user); err != nil { // Pass in name and location of temp folder will be inside function
 		return err
 	}
 
-	// Deletes compressed file
-	if err = os.RemoveAll(encrypted_location); err != nil {
+	// Deletes encypted file in temp
+	if err = os.RemoveAll(encrypted_location); err != nil { // Pass in name of file and then temp directory will be inside
 		log.Println(err)
 	}
 
@@ -101,7 +101,7 @@ func RecieveDecrypt(user int, keypath string, file string, location string) erro
 		return err
 	}
 	compressed_name := fmt.Sprintf("%s.tar.xz", encodedname)
-	if err = cloud.DownloadFromMega(user, file, compressed_name, location); err != nil {
+	if err = cloud.DownloadFromMega(user, file, compressed_name, location); err != nil { // Returns bytes of encrypted file
 		return err
 	}
 
@@ -117,11 +117,11 @@ func RecieveDecrypt(user int, keypath string, file string, location string) erro
 
 	decrypt_here := filepath.Join(current_dir, compressed_name)
 
-	if err = encription.AESDecryptItem(decrypt_here, compressed_name, KeyD, NonceD); err != nil {
+	if err = encription.AESDecryptItem(decrypt_here, compressed_name, KeyD, NonceD); err != nil { // Pass in bytes of encrypted file and then the file will be decrypted and put in the temp folder
 		return err
 	}
 
-	if err = encription.Decompress(decrypt_here); err != nil {
+	if err = encription.Decompress(decrypt_here); err != nil { // Takes in the name of the decrypted file and then the file is decrypted into location passed in
 		return err
 	}
 

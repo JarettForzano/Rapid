@@ -38,5 +38,9 @@ CREATE TABLE IF NOT EXISTS friends
 (
     id SERIAL PRIMARY KEY,
     user_one INTEGER NOT NULL, 
-    user_two INTEGER NOT NULL
+    user_two INTEGER NOT NULL,
+    FOREIGN KEY (user_one) REFERENCES users(id)
+    ON DELETE CASCADE,
+    FOREIGN KEY (user_two) REFERENCES users(id)
+    ON DELETE CASCADE
 );

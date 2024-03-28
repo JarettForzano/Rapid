@@ -199,6 +199,13 @@ func Login(username string, password string) error {
 	return nil
 }
 
+/*
+Removes all account information for a given user and deletes all rows that they are present in, including sent
+*/
+func DeleteAccount(id int) error {
+	return nil // Soon to be implemented (need to figure some stuff out with how ill do transfers in progress)
+}
+
 // Returns the current users id and sets the session
 func SetActiveSession() (int, error) {
 	uuid, err := getUUID()
@@ -218,6 +225,7 @@ func SetActiveSession() (int, error) {
 	return current_user, nil
 }
 
+// Returns currently logged in users id
 func GetCurrentId() int {
 	return current_user
 }
