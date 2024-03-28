@@ -69,7 +69,8 @@ func AreMutualFriends(user_one_id int, user_two_id int) bool {
 }
 
 type Friend struct {
-	Name       string
+	Nickname   string
+	Username   string
 	FriendCode string
 }
 
@@ -80,17 +81,17 @@ func GetFriendsList(id int) ([]Friend, error) {
 	query := `
 	SELECT nickname, friend_code
 	FROM (
-		SELECT users.nickname, users.friend_code
+		SELECT users.nickname, users.username, users.friend_code
 		FROM users
 		JOIN friends ON users.id = friends.user_two
 		WHERE friends.user_one = $1
 		UNION
-		SELECT users.nickname, users.friend_code
+		SELECT users.nickname, users.username, users.friend_code
 		FROM users
 		JOIN friends ON users.id = friends.user_one
 		WHERE friends.user_two = $1
 	) AS combined_data
-	GROUP BY nickname, friend_code`
+	GROUP BY nickname, username, friend_code`
 
 	rows, err := conn.Query(query, id)
 	if err != nil {
@@ -101,7 +102,7 @@ func GetFriendsList(id int) ([]Friend, error) {
 	var friendsList []Friend
 	for rows.Next() {
 		var friend Friend
-		if err := rows.Scan(&friend.Name, &friend.FriendCode); err != nil {
+		if err := rows.Scan(&friend.Nickname, &friend.Username, &friend.FriendCode); err != nil {
 			return nil, err
 		}
 		friendsList = append(friendsList, friend)
