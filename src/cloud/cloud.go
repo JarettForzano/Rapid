@@ -14,33 +14,18 @@ import (
 /*
 Uploads a zip to the cloud
 */
-func UploadToMega(path string, from_user_id int, user_to string) error {
-	// Formats the file
-	encrypted_name := filepath.Base(path)
-
-	current_dir, err := os.Getwd()
-	if err != nil {
-		return err
-	}
-
+func UploadToMega(name string, from_user_id int, user_to string) error {
 	// Handles megacmd config
 	home, _ := os.UserHomeDir()
 	directory := filepath.Join(home, "Rapid/.megacmd.json")
 	config := fmt.Sprintf(`-conf=%s`, directory)
 
 	// Sends that file to MEGA
-	cmd := exec.Command("megacmd", config, "put", encrypted_name, "mega:/")
-
-	cmd.Dir = current_dir
-
-	// Error handing
-	var out bytes.Buffer
-	var stderr bytes.Buffer
-	cmd.Stdout = &out
-	cmd.Stderr = &stderr
+	cmd := exec.Command("megacmd", config, "put", name, "mega:/")
+	cmd.Dir = os.TempDir()
 
 	// Runs cmd command
-	err = cmd.Run()
+	err := cmd.Run()
 	if err != nil {
 		return err
 	}

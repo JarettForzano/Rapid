@@ -37,15 +37,12 @@ func EncryptSend(filesource string, user int, to_user string) error {
 	encodedname := database.HashInfo(name + to_user)
 	compressed_name := fmt.Sprintf("%s.tar.xz", encodedname)
 
-	encription.Compress(filesource, compressed_name) // Returns the compressed files bytes
-
-	current_dir, err := os.Getwd()
+	byte_result, err := encription.Compress(filesource)
 	if err != nil {
 		return err
 	}
-	encrypted_location := filepath.Join(current_dir, compressed_name)
 
-	nonce, err := encription.AESEncryptionItem(encrypted_location, compressed_name, AESkey) // pass in bytes and creates an encrypted file located in temp folder
+	nonce, err := encription.AESEncryptionItem(compressed_name, byte_result, AESkey)
 	if err != nil {
 		return err
 	}
@@ -72,12 +69,12 @@ func EncryptSend(filesource string, user int, to_user string) error {
 		return err
 	}
 
-	if err = cloud.UploadToMega(encrypted_location, user, to_user); err != nil { // Pass in name and location of temp folder will be inside function
+	if err = cloud.UploadToMega(compressed_name, user, to_user); err != nil {
 		return err
 	}
 
 	// Deletes encypted file in temp
-	if err = os.RemoveAll(encrypted_location); err != nil { // Pass in name of file and then temp directory will be inside
+	if err = os.RemoveAll(filepath.Join(os.TempDir(), compressed_name)); err != nil {
 		log.Println(err)
 	}
 

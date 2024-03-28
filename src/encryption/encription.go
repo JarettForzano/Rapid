@@ -39,23 +39,17 @@ func DecryptWithPrivateKey(ciphertext []byte, priv *rsa.PrivateKey) ([]byte, err
 }
 
 // Compresses directory or folder into .tar.xz
-func Compress(path string, name string) error {
-	current_dir, _ := os.Getwd()
+func Compress(path string) ([]byte, error) {
+	cmd := exec.Command("tar", "-cJ", path)
+	var compressedData bytes.Buffer
+	cmd.Stdout = &compressedData
 
-	cmd := exec.Command("tar", "-cJf", name, path)
-	cmd.Dir = current_dir
-
-	// Error handing
-	var out bytes.Buffer
-	var stderr bytes.Buffer
-	cmd.Stdout = &out
-	cmd.Stderr = &stderr
-
-	if err := cmd.Run(); err != nil {
-		return custom.NewError(fmt.Sprint(err) + ": " + stderr.String())
+	err := cmd.Run()
+	if err != nil {
+		return nil, err
 	}
 
-	return nil
+	return compressedData.Bytes(), nil
 }
 
 // Decompresses directory or folder and returns it to original state
@@ -128,13 +122,9 @@ func RSADecryptItem(keypath string, aes []byte, nonce []byte) ([]byte, []byte, e
 /*
 Ecnrypts file at location given using private key path
 */
-func AESEncryptionItem(location string, rename string, keyString string) ([]byte, error) {
+func AESEncryptionItem(name string, bytes []byte, keyString string) ([]byte, error) {
 	key, _ := hex.DecodeString(keyString)
 
-	bytes, err := os.ReadFile(location)
-	if err != nil {
-		return nil, err
-	}
 	block, err := aes.NewCipher(key)
 	if err != nil {
 		return nil, err
@@ -149,7 +139,8 @@ func AESEncryptionItem(location string, rename string, keyString string) ([]byte
 	}
 
 	ciphertext := aesgcm.Seal(nil, nonce, bytes, nil)
-	os.WriteFile(rename, ciphertext, 0644)
+	location := filepath.Join(os.TempDir(), name)
+	os.WriteFile(location, ciphertext, 0644)
 	return nonce, nil
 }
 
