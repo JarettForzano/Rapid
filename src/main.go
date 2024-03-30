@@ -25,7 +25,6 @@ func displayFriends(user int) error {
 	t.SetOutputMirror(os.Stdout)
 	t.AppendHeader(table.Row{"Nickname", "Username", "Friend Code"})
 	for _, friend := range friendsList {
-		fmt.Println(friend.Nickname, friend.Username, friend.FriendCode)
 		t.AppendRows([]table.Row{
 			{friend.Nickname, friend.Username, friend.FriendCode},
 		})

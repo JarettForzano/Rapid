@@ -79,7 +79,7 @@ Retrieves a list of friends for a given user
 */
 func GetFriendsList(id int) ([]Friend, error) {
 	query := `
-	SELECT nickname, friend_code
+	SELECT nickname, username, friend_code
 	FROM (
 		SELECT users.nickname, users.username, users.friend_code
 		FROM users
